@@ -1,0 +1,2421 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="AceArch — Personal student productivity workspace."
+    >
+
+    <title>AceArch</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside class="sidebar" id="sidebar">
+
+        <div class="brand">
+            <div class="brand-icon">A</div>
+            <span>AceArch</span>
+        </div>
+
+        <nav class="navigation">
+
+            <a
+                href="#dashboard"
+                class="nav-item active"
+                data-section="dashboard"
+            >
+                <span>⌂</span>
+                <span>Dashboard</span>
+            </a>
+
+            <a
+                href="#tasks"
+                class="nav-item"
+                data-section="tasks"
+            >
+                <span>✓</span>
+                <span>Tasks</span>
+            </a>
+
+            <a
+                href="#calendar"
+                class="nav-item"
+                data-section="calendar"
+            >
+                <span>□</span>
+                <span>Calendar</span>
+            </a>
+
+            <a
+                href="#subjects"
+                class="nav-item"
+                data-section="subjects"
+            >
+                <span>▤</span>
+                <span>Subjects</span>
+            </a>
+
+            <a
+                href="#focus"
+                class="nav-item"
+                data-section="focus"
+            >
+                <span>◷</span>
+                <span>Focus</span>
+            </a>
+
+            <a
+                href="#analytics"
+                class="nav-item"
+                data-section="analytics"
+            >
+                <span>◫</span>
+                <span>Analytics</span>
+            </a>
+
+        </nav>
+
+        <div class="sidebar-bottom">
+
+            <a
+                href="#settings"
+                class="nav-item"
+                data-section="settings"
+            >
+                <span>⚙</span>
+                <span>Settings</span>
+            </a>
+
+        </div>
+
+    </aside>
+
+
+    <div
+        class="sidebar-overlay"
+        id="sidebarOverlay"
+    ></div>
+
+
+    <!-- =====================================================
+         MAIN CONTENT
+    ====================================================== -->
+
+    <main class="main-content">
+
+        <!-- MOBILE HEADER -->
+
+        <header class="mobile-header">
+
+            <button
+                class="menu-button"
+                id="menuButton"
+                type="button"
+                aria-label="Open menu"
+            >
+                ☰
+            </button>
+
+            <div class="mobile-brand">
+
+                <div class="brand-icon">A</div>
+
+                <span>AceArch</span>
+
+            </div>
+
+            <button
+                class="mobile-notification"
+                id="mobileNotificationButton"
+                type="button"
+                aria-label="Notifications"
+            >
+                ♢
+
+                <span
+                    class="notification-dot"
+                    id="mobileNotificationDot"
+                ></span>
+
+            </button>
+
+        </header>
+
+
+        <!-- DESKTOP HEADER -->
+
+        <header class="topbar">
+
+            <div>
+
+                <p class="greeting">
+                    Welcome to AceArch
+                </p>
+
+                <h1 id="pageTitle">
+                    Dashboard
+                </h1>
+
+                <p
+                    class="date-display"
+                    id="currentDate"
+                ></p>
+
+            </div>
+
+            <div class="topbar-actions">
+
+                <button
+                    class="icon-button notification-trigger"
+                    id="notificationButton"
+                    type="button"
+                    aria-label="Notifications"
+                >
+                    ♢
+
+                    <span
+                        class="notification-dot"
+                        id="notificationDot"
+                    ></span>
+
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- =================================================
+             NOTIFICATIONS
+        ================================================== -->
+
+        <div
+            class="notification-panel"
+            id="notificationPanel"
+        >
+
+            <div class="notification-header">
+
+                <div>
+
+                    <p class="card-eyebrow">
+                        UPDATES
+                    </p>
+
+                    <h3>
+                        Notifications
+                    </h3>
+
+                </div>
+
+                <button
+                    class="small-button"
+                    id="clearNotifications"
+                    type="button"
+                >
+                    Clear
+                </button>
+
+            </div>
+
+            <div
+                id="notificationList"
+                class="notification-list"
+            ></div>
+
+        </div>
+
+
+        <!-- =================================================
+             DASHBOARD
+        ================================================== -->
+
+        <section
+            class="page-section active-section"
+            id="dashboardSection"
+        >
+
+            <!-- Welcome -->
+
+            <section class="welcome-card">
+
+                <div>
+
+                    <span class="welcome-label">
+                        ACEARCH
+                    </span>
+
+                    <h2>
+                        Plan your studies, your way.
+                    </h2>
+
+                    <p>
+                        Organize your tasks, schedule,
+                        subjects and study sessions.
+                    </p>
+
+                </div>
+
+                <button
+                    class="primary-button"
+                    id="dashboardAddTask"
+                    type="button"
+                >
+                    + Add Task
+                </button>
+
+            </section>
+
+
+            <!-- Stats -->
+
+            <section class="stats">
+
+                <div class="stat-card">
+
+                    <div class="stat-top">
+
+                        <span>
+                            Completed Tasks
+                        </span>
+
+                        <span class="stat-icon">
+                            ✓
+                        </span>
+
+                    </div>
+
+                    <strong id="completedTasksStat">
+                        0
+                    </strong>
+
+                    <small>
+                        completed
+                    </small>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-top">
+
+                        <span>
+                            Study Streak
+                        </span>
+
+                        <span class="stat-icon">
+                            🔥
+                        </span>
+
+                    </div>
+
+                    <strong id="studyStreakStat">
+                        0
+                    </strong>
+
+                    <small>
+                        days
+                    </small>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-top">
+
+                        <span>
+                            Study Time
+                        </span>
+
+                        <span class="stat-icon">
+                            ◷
+                        </span>
+
+                    </div>
+
+                    <strong id="studyTimeStat">
+                        0m
+                    </strong>
+
+                    <small>
+                        focus time
+                    </small>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-top">
+
+                        <span>
+                            Productivity
+                        </span>
+
+                        <span class="stat-icon">
+                            ↗
+                        </span>
+
+                    </div>
+
+                    <strong id="productivityStat">
+                        0%
+                    </strong>
+
+                    <small>
+                        completion rate
+                    </small>
+
+                </div>
+
+            </section>
+
+
+            <!-- Quick Actions -->
+
+            <section class="quick-actions">
+
+                <button
+                    class="quick-action"
+                    data-action="add-task"
+                    type="button"
+                >
+
+                    <span class="quick-icon">
+                        +
+                    </span>
+
+                    Add Task
+
+                </button>
+
+
+                <button
+                    class="quick-action"
+                    data-action="focus"
+                    type="button"
+                >
+
+                    <span class="quick-icon">
+                        ◷
+                    </span>
+
+                    Start Focus
+
+                </button>
+
+
+                <button
+                    class="quick-action"
+                    data-action="calendar"
+                    type="button"
+                >
+
+                    <span class="quick-icon">
+                        □
+                    </span>
+
+                    Open Calendar
+
+                </button>
+
+
+                <button
+                    class="quick-action"
+                    data-action="subject"
+                    type="button"
+                >
+
+                    <span class="quick-icon">
+                        +
+                    </span>
+
+                    Add Subject
+
+                </button>
+
+            </section>
+
+
+            <!-- Today's Tasks / Upcoming -->
+
+            <section class="dashboard-grid">
+
+                <div class="card">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                TODAY
+                            </p>
+
+                            <h2>
+                                Today's Tasks
+                            </h2>
+
+                        </div>
+
+                        <button
+                            class="add-button"
+                            data-action="add-task"
+                            type="button"
+                        >
+                            +
+                        </button>
+
+                    </div>
+
+
+                    <div
+                        id="dashboardTaskList"
+                        class="task-list"
+                    ></div>
+
+
+                    <div
+                        id="dashboardTaskEmpty"
+                        class="empty-state"
+                    >
+
+                        <div class="empty-icon">
+                            ✓
+                        </div>
+
+                        <h3>
+                            No tasks yet
+                        </h3>
+
+                        <p>
+                            Your tasks will appear here.
+                        </p>
+
+                        <button
+                            class="text-button"
+                            data-action="add-task"
+                            type="button"
+                        >
+                            Create Task →
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                UPCOMING
+                            </p>
+
+                            <h2>
+                                Upcoming
+                            </h2>
+
+                        </div>
+
+                        <button
+                            class="text-button"
+                            data-action="calendar"
+                            type="button"
+                        >
+                            Calendar
+                        </button>
+
+                    </div>
+
+
+                    <div
+                        id="dashboardUpcoming"
+                        class="deadline-list"
+                    ></div>
+
+
+                    <div
+                        id="dashboardUpcomingEmpty"
+                        class="empty-state"
+                    >
+
+                        <div class="empty-icon">
+                            □
+                        </div>
+
+                        <h3>
+                            No upcoming items
+                        </h3>
+
+                        <p>
+                            Your deadlines and reminders
+                            will appear here.
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Subjects / Weekly -->
+
+            <section class="dashboard-grid">
+
+                <div class="card">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                SUBJECTS
+                            </p>
+
+                            <h2>
+                                Your Subjects
+                            </h2>
+
+                        </div>
+
+                        <button
+                            class="text-button"
+                            data-action="subjects"
+                            type="button"
+                        >
+                            View All
+                        </button>
+
+                    </div>
+
+
+                    <div
+                        id="dashboardSubjects"
+                        class="subject-mini-list"
+                    ></div>
+
+
+                    <div
+                        id="dashboardSubjectsEmpty"
+                        class="empty-state"
+                    >
+
+                        <div class="empty-icon">
+                            ▤
+                        </div>
+
+                        <h3>
+                            No subjects yet
+                        </h3>
+
+                        <p>
+                            Add your first subject.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="card">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                PROGRESS
+                            </p>
+
+                            <h2>
+                                Weekly Overview
+                            </h2>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        class="weekly-bars"
+                        id="weeklyBars"
+                    ></div>
+
+                </div>
+
+            </section>
+
+        </section>
+
+
+        <!-- =================================================
+             TASKS
+        ================================================== -->
+
+        <section
+            class="page-section"
+            id="tasksSection"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <p class="card-eyebrow">
+                        ORGANIZE
+                    </p>
+
+                    <h1>
+                        Tasks
+                    </h1>
+
+                    <p>
+                        Manage everything you need to get done.
+                    </p>
+
+                </div>
+
+                <button
+                    class="primary-button"
+                    id="tasksAddButton"
+                    type="button"
+                >
+                    + Add Task
+                </button>
+
+            </div>
+
+
+            <div class="task-toolbar">
+
+                <input
+                    id="taskSearch"
+                    type="search"
+                    placeholder="Search tasks..."
+                    autocomplete="off"
+                >
+
+
+                <select id="taskFilter">
+
+                    <option value="all">
+                        All Tasks
+                    </option>
+
+                    <option value="active">
+                        Active
+                    </option>
+
+                    <option value="completed">
+                        Completed
+                    </option>
+
+                    <option value="overdue">
+                        Overdue
+                    </option>
+
+                </select>
+
+
+                <select id="taskPriorityFilter">
+
+                    <option value="all">
+                        All Priorities
+                    </option>
+
+                    <option value="high">
+                        High
+                    </option>
+
+                    <option value="medium">
+                        Medium
+                    </option>
+
+                    <option value="low">
+                        Low
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div
+                class="full-task-list"
+                id="fullTaskList"
+            ></div>
+
+
+            <div
+                class="empty-page"
+                id="tasksEmpty"
+            >
+
+                <div class="large-empty-icon">
+                    ✓
+                </div>
+
+                <h2>
+                    No tasks yet
+                </h2>
+
+                <p>
+                    Create your first task to start
+                    organizing your work.
+                </p>
+
+                <button
+                    class="primary-button"
+                    data-action="add-task"
+                    type="button"
+                >
+                    Create Task
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             CALENDAR
+        ================================================== -->
+
+        <section
+            class="page-section"
+            id="calendarSection"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <p class="card-eyebrow">
+                        PLAN
+                    </p>
+
+                    <h1>
+                        Calendar
+                    </h1>
+
+                    <p>
+                        Tasks, deadlines, reminders and events
+                        in one place.
+                    </p>
+
+                </div>
+
+                <button
+                    class="primary-button"
+                    id="addCalendarItem"
+                    type="button"
+                >
+                    + Add
+                </button>
+
+            </div>
+
+
+            <div class="calendar-layout">
+
+                <div class="card">
+
+                    <div class="calendar-header">
+
+                        <button
+                            class="calendar-nav"
+                            id="previousMonth"
+                            type="button"
+                        >
+                            ‹
+                        </button>
+
+                        <h2 id="calendarMonth">
+                            August 2026
+                        </h2>
+
+                        <button
+                            class="calendar-nav"
+                            id="nextMonth"
+                            type="button"
+                        >
+                            ›
+                        </button>
+
+                    </div>
+
+
+                    <div class="calendar-weekdays">
+
+                        <span>Mon</span>
+                        <span>Tue</span>
+                        <span>Wed</span>
+                        <span>Thu</span>
+                        <span>Fri</span>
+                        <span>Sat</span>
+                        <span>Sun</span>
+
+                    </div>
+
+
+                    <div
+                        class="calendar-grid"
+                        id="calendarGrid"
+                    ></div>
+
+                </div>
+
+
+                <div class="card calendar-day-card">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <p class="card-eyebrow">
+                                SELECTED DATE
+                            </p>
+
+                            <h2 id="selectedDateTitle">
+                                Select a date
+                            </h2>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        id="selectedDateItems"
+                        class="selected-date-items"
+                    ></div>
+
+
+                    <button
+                        class="primary-button full-width"
+                        id="addSelectedDateItem"
+                        type="button"
+                    >
+                        + Add to Date
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             SUBJECTS
+        ================================================== -->
+
+        <section
+            class="page-section"
+            id="subjectsSection"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <p class="card-eyebrow">
+                        ACADEMICS
+                    </p>
+
+                    <h1>
+                        Subjects
+                    </h1>
+
+                    <p>
+                        Organize subjects, schedules,
+                        notes and study resources.
+                    </p>
+
+                </div>
+
+                <button
+                    class="primary-button"
+                    id="addSubjectButton"
+                    type="button"
+                >
+                    + Add Subject
+                </button>
+
+            </div>
+
+
+            <div
+                class="subjects-grid"
+                id="subjectsGrid"
+            ></div>
+
+
+            <div
+                class="empty-page"
+                id="subjectsEmpty"
+            >
+
+                <div class="large-empty-icon">
+                    ▤
+                </div>
+
+                <h2>
+                    No subjects yet
+                </h2>
+
+                <p>
+                    Create a subject to organize
+                    your schedule and notes.
+                </p>
+
+                <button
+                    class="primary-button"
+                    data-action="subject"
+                    type="button"
+                >
+                    Add Subject
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             FOCUS TIMER
+        ================================================== -->
+
+        <section
+            class="page-section"
+            id="focusSection"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <p class="card-eyebrow">
+                        PRODUCTIVITY
+                    </p>
+
+                    <h1>
+                        Focus Timer
+                    </h1>
+
+                    <p>
+                        Set a focus duration, choose a quick time, and start working.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="focus-container card">
+
+                <div class="focus-timer-label">
+                    FOCUS TIMER
+                </div>
+
+                <div
+                    class="focus-timer"
+                    id="focusTimer"
+                >
+                    25:00
+                </div>
+
+                <p
+                    class="focus-status"
+                    id="focusStatus"
+                >
+                    Ready to focus
+                </p>
+
+                <div class="focus-duration-control">
+
+                    <label for="focusMinutes">
+                        Set time
+                    </label>
+
+                    <div class="focus-duration-input">
+                        <input
+                            id="focusMinutes"
+                            type="number"
+                            min="1"
+                            max="180"
+                            value="25"
+                            inputmode="numeric"
+                        >
+                        <span>minutes</span>
+                        <button
+                            class="secondary-button"
+                            id="applyFocusDuration"
+                            type="button"
+                        >
+                            Set Time
+                        </button>
+                    </div>
+
+                </div>
+
+                <div class="quick-focus-times" aria-label="Quick focus times">
+
+                    <span class="quick-focus-label">Quick time</span>
+
+                    <button class="quick-focus-button" data-focus-minutes="5" type="button">5 min</button>
+                    <button class="quick-focus-button" data-focus-minutes="15" type="button">15 min</button>
+                    <button class="quick-focus-button" data-focus-minutes="25" type="button">25 min</button>
+                    <button class="quick-focus-button" data-focus-minutes="45" type="button">45 min</button>
+                    <button class="quick-focus-button" data-focus-minutes="60" type="button">60 min</button>
+
+                </div>
+
+                <div class="focus-controls">
+
+                    <button
+                        class="primary-button focus-start-button"
+                        id="focusStart"
+                        type="button"
+                    >
+                        Start
+                    </button>
+
+                    <button
+                        class="secondary-button"
+                        id="focusReset"
+                        type="button"
+                    >
+                        Reset
+                    </button>
+
+                </div>
+
+                <div class="focus-today">
+
+                    <div>
+                        <strong id="todaySessions">0</strong>
+                        <span>Sessions today</span>
+                    </div>
+
+                    <div>
+                        <strong id="todayFocusMinutes">0</strong>
+                        <span>Minutes today</span>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             ANALYTICS
+        ================================================== -->
+
+        <section
+            class="page-section"
+            id="analyticsSection"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <p class="card-eyebrow">
+                        INSIGHTS
+                    </p>
+
+                    <h1>
+                        Analytics
+                    </h1>
+
+                    <p>
+                        Your productivity based on
+                        actual AceArch activity.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="analytics-grid">
+
+                <div class="card analytics-card">
+
+                    <span>
+                        Tasks
+                    </span>
+
+                    <strong id="analyticsTasks">
+                        0
+                    </strong>
+
+                    <small>
+                        completed
+                    </small>
+
+                </div>
+
+
+                <div class="card analytics-card">
+
+                    <span>
+                        Focus
+                    </span>
+
+                    <strong id="analyticsFocus">
+                        0m
+                    </strong>
+
+                    <small>
+                        total minutes
+                    </small>
+
+                </div>
+
+
+                <div class="card analytics-card">
+
+                    <span>
+                        Subjects
+                    </span>
+
+                    <strong id="analyticsSubjects">
+                        0
+                    </strong>
+
+                    <small>
+                        created
+                    </small>
+
+                </div>
+
+
+                <div class="card analytics-card">
+
+                    <span>
+                        Completion
+                    </span>
+
+                    <strong id="analyticsCompletion">
+                        0%
+                    </strong>
+
+                    <small>
+                        task completion
+                    </small>
+
+                </div>
+
+            </div>
+
+
+            <div class="analytics-overview">
+
+                <div class="card analytics-highlight">
+                    <div class="analytics-highlight-icon">↗</div>
+                    <div>
+                        <p class="card-eyebrow">TREND</p>
+                        <h2 id="analyticsInsight">Build your first streak</h2>
+                        <p id="analyticsInsightDetail">Complete tasks or focus for a few minutes to start seeing your productivity trend.</p>
+                    </div>
+                </div>
+
+                <div class="card analytics-mini-chart">
+                    <div class="card-header">
+                        <div>
+                            <p class="card-eyebrow">FOCUS</p>
+                            <h2>Focus this week</h2>
+                        </div>
+                        <strong id="analyticsWeekFocus">0m</strong>
+                    </div>
+                    <div class="analytics-progress-track">
+                        <div class="analytics-progress-fill" id="analyticsFocusProgress"></div>
+                    </div>
+                    <small id="analyticsFocusProgressText">0 minutes logged in the last 7 days</small>
+                </div>
+
+            </div>
+
+
+            <div class="card">
+
+                <div class="card-header">
+
+                    <div>
+
+                        <p class="card-eyebrow">
+                            ACTIVITY
+                        </p>
+
+                        <h2>
+                            Last 7 Days
+                        </h2>
+
+                    </div>
+
+                </div>
+
+
+                <div
+                    class="analytics-bars"
+                    id="analyticsBars"
+                ></div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             SETTINGS
+        ================================================== -->
+
+        <section
+            class="page-section"
+            id="settingsSection"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <p class="card-eyebrow">
+                        PREFERENCES
+                    </p>
+
+                    <h1>
+                        Settings
+                    </h1>
+
+                    <p>
+                        Configure how AceArch works for you.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="settings-layout">
+
+                <aside class="settings-nav">
+
+                    <button
+                        class="settings-tab active"
+                        data-settings="general"
+                        type="button"
+                    >
+                        General
+                    </button>
+
+                    <button
+                        class="settings-tab"
+                        data-settings="notifications"
+                        type="button"
+                    >
+                        Notifications
+                    </button>
+
+                    <button
+                        class="settings-tab"
+                        data-settings="customize"
+                        type="button"
+                    >
+                        Customize UI
+                    </button>
+
+                    <button
+                        class="settings-tab"
+                        data-settings="about"
+                        type="button"
+                    >
+                        About
+                    </button>
+
+                </aside>
+
+
+                <div class="settings-content">
+
+                    <!-- GENERAL -->
+
+                    <div
+                        class="settings-panel active"
+                        data-settings-panel="general"
+                    >
+
+                        <h2>
+                            General
+                        </h2>
+
+                        <p class="settings-description">
+                            Basic AceArch preferences.
+                        </p>
+
+
+                        <div class="setting-row">
+
+                            <div>
+
+                                <strong>
+                                    Default task priority
+                                </strong>
+
+                                <small>
+                                    Priority used when creating
+                                    a new task.
+                                </small>
+
+                            </div>
+
+                            <select id="defaultPriority">
+
+                                <option value="low">
+                                    Low
+                                </option>
+
+                                <option value="medium">
+                                    Medium
+                                </option>
+
+                                <option value="high">
+                                    High
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <label class="toggle-row">
+
+                            <div>
+
+                                <strong>
+                                    Confirm before deleting
+                                </strong>
+
+                                <small>
+                                    Ask before deleting tasks
+                                    and subjects.
+                                </small>
+
+                            </div>
+
+                            <input
+                                type="checkbox"
+                                id="confirmDelete"
+                            >
+
+                        </label>
+
+                    </div>
+
+
+                    <!-- NOTIFICATIONS -->
+
+                    <div
+                        class="settings-panel"
+                        data-settings-panel="notifications"
+                    >
+
+                        <h2>
+                            Notifications
+                        </h2>
+
+                        <p class="settings-description">
+                            Control AceArch reminders.
+                        </p>
+
+
+                        <label class="toggle-row">
+
+                            <div>
+
+                                <strong>
+                                    Task reminders
+                                </strong>
+
+                                <small>
+                                    Notify you when tasks are created.
+                                </small>
+
+                            </div>
+
+                            <input
+                                type="checkbox"
+                                id="taskNotifications"
+                            >
+
+                        </label>
+
+
+                        <label class="toggle-row">
+
+                            <div>
+
+                                <strong>
+                                    Deadline reminders
+                                </strong>
+
+                                <small>
+                                    Show upcoming deadline notifications.
+                                </small>
+
+                            </div>
+
+                            <input
+                                type="checkbox"
+                                id="deadlineNotifications"
+                            >
+
+                        </label>
+
+
+                        <label class="toggle-row">
+
+                            <div>
+
+                                <strong>
+                                    Study reminders
+                                </strong>
+
+                                <small>
+                                    Notify you when a focus session finishes.
+                                </small>
+
+                            </div>
+
+                            <input
+                                type="checkbox"
+                                id="studyNotifications"
+                            >
+
+                        </label>
+
+                    </div>
+
+
+                    <!-- CUSTOMIZE -->
+
+                    <div
+                        class="settings-panel"
+                        data-settings-panel="customize"
+                    >
+
+                        <h2>
+                            Customize AceArch
+                        </h2>
+
+                        <p class="settings-description">
+                            Make AceArch look and feel like yours.
+                        </p>
+
+
+                        <div class="customize-group">
+
+                            <h3>
+                                Theme
+                            </h3>
+
+                            <div class="choice-grid">
+
+                                <button
+                                    class="choice-card"
+                                    data-theme="dark"
+                                    type="button"
+                                >
+
+                                    <strong>
+                                        Dark
+                                    </strong>
+
+                                    <span>
+                                        Dark interface
+                                    </span>
+
+                                </button>
+
+
+                                <button
+                                    class="choice-card"
+                                    data-theme="light"
+                                    type="button"
+                                >
+
+                                    <strong>
+                                        Light
+                                    </strong>
+
+                                    <span>
+                                        Light interface
+                                    </span>
+
+                                </button>
+
+
+                                <button
+                                    class="choice-card"
+                                    data-theme="system"
+                                    type="button"
+                                >
+
+                                    <strong>
+                                        System
+                                    </strong>
+
+                                    <span>
+                                        Follow device
+                                    </span>
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="customize-group">
+
+                            <h3>
+                                Accent Color
+                            </h3>
+
+                            <div class="color-options">
+                                <button class="color-choice" data-color="#7c5cff" style="--choice-color:#7c5cff" type="button" aria-label="Violet"></button>
+                                <button class="color-choice" data-color="#8b5cf6" style="--choice-color:#8b5cf6" type="button" aria-label="Purple"></button>
+                                <button class="color-choice" data-color="#6366f1" style="--choice-color:#6366f1" type="button" aria-label="Indigo"></button>
+                                <button class="color-choice" data-color="#3b82f6" style="--choice-color:#3b82f6" type="button" aria-label="Blue"></button>
+                                <button class="color-choice" data-color="#0ea5e9" style="--choice-color:#0ea5e9" type="button" aria-label="Sky"></button>
+                                <button class="color-choice" data-color="#06b6d4" style="--choice-color:#06b6d4" type="button" aria-label="Cyan"></button>
+                                <button class="color-choice" data-color="#14b8a6" style="--choice-color:#14b8a6" type="button" aria-label="Teal"></button>
+                                <button class="color-choice" data-color="#22c55e" style="--choice-color:#22c55e" type="button" aria-label="Green"></button>
+                                <button class="color-choice" data-color="#84cc16" style="--choice-color:#84cc16" type="button" aria-label="Lime"></button>
+                                <button class="color-choice" data-color="#eab308" style="--choice-color:#eab308" type="button" aria-label="Yellow"></button>
+                                <button class="color-choice" data-color="#f97316" style="--choice-color:#f97316" type="button" aria-label="Orange"></button>
+                                <button class="color-choice" data-color="#ef4444" style="--choice-color:#ef4444" type="button" aria-label="Red"></button>
+                                <button class="color-choice" data-color="#f43f5e" style="--choice-color:#f43f5e" type="button" aria-label="Rose"></button>
+                                <button class="color-choice" data-color="#ec4899" style="--choice-color:#ec4899" type="button" aria-label="Pink"></button>
+                                <button class="color-choice" data-color="#d946ef" style="--choice-color:#d946ef" type="button" aria-label="Fuchsia"></button>
+                                <button class="color-choice" data-color="#a855f7" style="--choice-color:#a855f7" type="button" aria-label="Violet Bright"></button>
+                            </div>
+
+                        </div>
+
+
+                        <div class="customize-group">
+
+                            <h3>
+                                Font
+                            </h3>
+
+                            <select id="fontSelector">
+                                <option value="Inter">Inter</option>
+                                <option value="system-ui">System UI</option>
+                                <option value="Arial">Arial</option>
+                                <option value="Helvetica">Helvetica</option>
+                                <option value="Verdana">Verdana</option>
+                                <option value="Tahoma">Tahoma</option>
+                                <option value="Trebuchet MS">Trebuchet MS</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Garamond">Garamond</option>
+                                <option value="Palatino Linotype">Palatino Linotype</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Courier New">Courier New</option>
+                                <option value="Consolas">Consolas</option>
+                                <option value="Lucida Console">Lucida Console</option>
+                                <option value="Impact">Impact</option>
+                                <option value="Comic Sans MS">Comic Sans MS</option>
+                            </select>
+
+                            <div class="font-preview-grid">
+                                <div class="font-preview-card" style="font-family:Inter">Clean & modern — Inter</div>
+                                <div class="font-preview-card" style="font-family:Georgia">Classic & elegant — Georgia</div>
+                                <div class="font-preview-card" style="font-family:Trebuchet MS">Friendly & rounded — Trebuchet</div>
+                                <div class="font-preview-card" style="font-family:Courier New">Technical & focused — Courier</div>
+                            </div>
+
+                        </div>
+
+
+                        <div class="customize-group">
+
+                            <h3>
+                                Interface Density
+                            </h3>
+
+                            <div class="choice-grid">
+
+                                <button
+                                    class="choice-card"
+                                    data-density="comfortable"
+                                    type="button"
+                                >
+
+                                    <strong>
+                                        Comfortable
+                                    </strong>
+
+                                    <span>
+                                        More spacing
+                                    </span>
+
+                                </button>
+
+
+                                <button
+                                    class="choice-card"
+                                    data-density="compact"
+                                    type="button"
+                                >
+
+                                    <strong>
+                                        Compact
+                                    </strong>
+
+                                    <span>
+                                        Less spacing
+                                    </span>
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <button
+                            class="secondary-button"
+                            id="resetCustomization"
+                            type="button"
+                        >
+                            Reset Customization
+                        </button>
+
+                    </div>
+
+                    <!-- ABOUT -->
+
+                    <div
+                        class="settings-panel"
+                        data-settings-panel="about"
+                    >
+
+                        <h2>
+                            About AceArch
+                        </h2>
+
+                        <p class="settings-description">
+                            A personal student productivity
+                            workspace built from scratch.
+                        </p>
+
+
+                        <div class="about-box">
+
+                            <strong>
+                                AceArch
+                            </strong>
+
+                            <span>
+                                Personal Student Planner
+                            </span>
+
+                            <small>
+                                Frontend foundation
+                            </small>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- =======================================================
+     TASK MODAL
+======================================================== -->
+
+<div
+    class="modal-overlay"
+    id="taskModal"
+    aria-hidden="true"
+>
+
+    <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+    >
+
+        <div class="modal-header">
+
+            <div>
+
+                <p class="card-eyebrow">
+                    TASK
+                </p>
+
+                <h2 id="taskModalTitle">
+                    Add Task
+                </h2>
+
+            </div>
+
+            <button
+                class="close-modal"
+                data-close-modal
+                type="button"
+                aria-label="Close"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="taskForm">
+
+            <input
+                id="taskId"
+                type="hidden"
+            >
+
+
+            <div class="form-group">
+
+                <label for="taskTitle">
+                    Task title
+                </label>
+
+                <input
+                    id="taskTitle"
+                    type="text"
+                    required
+                    autocomplete="off"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="taskSubject">
+                    Subject
+                </label>
+
+                <input
+                    id="taskSubject"
+                    type="text"
+                    autocomplete="off"
+                >
+
+            </div>
+
+
+            <div class="form-row">
+
+                <div class="form-group">
+
+                    <label for="taskDate">
+                        Deadline
+                    </label>
+
+                    <input
+                        id="taskDate"
+                        type="date"
+                        required
+                    >
+
+                    <small class="field-hint">
+                        Deadline cannot be before today.
+                    </small>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="taskPriority">
+                        Priority
+                    </label>
+
+                    <select id="taskPriority">
+
+                        <option value="low">
+                            Low
+                        </option>
+
+                        <option value="medium">
+                            Medium
+                        </option>
+
+                        <option value="high">
+                            High
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="taskDescription">
+                    Description
+                </label>
+
+                <textarea
+                    id="taskDescription"
+                    rows="4"
+                ></textarea>
+
+            </div>
+
+
+            <button
+                class="submit-task"
+                type="submit"
+                id="taskSubmitButton"
+            >
+                Create Task
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- =======================================================
+     CALENDAR MODAL
+======================================================== -->
+
+<div
+    class="modal-overlay"
+    id="calendarModal"
+    aria-hidden="true"
+>
+
+    <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+    >
+
+        <div class="modal-header">
+
+            <div>
+
+                <p class="card-eyebrow">
+                    CALENDAR
+                </p>
+
+                <h2>
+                    Add to Calendar
+                </h2>
+
+            </div>
+
+            <button
+                class="close-modal"
+                data-close-calendar
+                type="button"
+                aria-label="Close"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="calendarForm">
+
+            <div class="form-group">
+
+                <label for="calendarItemTitle">
+                    Title
+                </label>
+
+                <input
+                    id="calendarItemTitle"
+                    type="text"
+                    required
+                    autocomplete="off"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="calendarItemDate">
+                    Date
+                </label>
+
+                <input
+                    id="calendarItemDate"
+                    type="date"
+                    required
+                >
+
+                <small class="field-hint">
+                    Calendar items cannot be added before today.
+                </small>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="calendarItemType">
+                    Type
+                </label>
+
+                <select id="calendarItemType">
+
+                    <option value="reminder">
+                        Reminder
+                    </option>
+
+                    <option value="event">
+                        Event
+                    </option>
+
+                    <option value="exam">
+                        Exam
+                    </option>
+
+                    <option value="personal">
+                        Personal
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <button
+                class="submit-task"
+                type="submit"
+            >
+                Add to Calendar
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- =======================================================
+     SUBJECT MODAL
+======================================================== -->
+
+<div
+    class="modal-overlay"
+    id="subjectModal"
+    aria-hidden="true"
+>
+
+    <div
+        class="modal modal-large"
+        role="dialog"
+        aria-modal="true"
+    >
+
+        <div class="modal-header">
+
+            <div>
+
+                <p class="card-eyebrow">
+                    ACADEMICS
+                </p>
+
+                <h2 id="subjectModalTitle">
+                    Add Subject
+                </h2>
+
+            </div>
+
+            <button
+                class="close-modal"
+                data-close-subject
+                type="button"
+                aria-label="Close"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="subjectForm">
+
+            <input
+                id="subjectId"
+                type="hidden"
+            >
+
+
+            <div class="form-row">
+
+                <div class="form-group">
+
+                    <label for="subjectName">
+                        Subject name
+                    </label>
+
+                    <input
+                        id="subjectName"
+                        type="text"
+                        required
+                        autocomplete="off"
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label for="subjectColor">
+                        Color
+                    </label>
+
+                    <input
+                        id="subjectColor"
+                        type="color"
+                        value="#7c5cff"
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="subject-editor-section">
+
+                <div class="section-title-row">
+
+                    <div>
+
+                        <h3>
+                            Schedule / Planner
+                        </h3>
+
+                        <p>
+                            Add classes, study sessions,
+                            lectures or recurring plans.
+                        </p>
+
+                    </div>
+
+                    <button
+                        class="secondary-button"
+                        id="addScheduleRow"
+                        type="button"
+                    >
+                        + Add Schedule
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="subjectScheduleRows"
+                    class="schedule-editor"
+                ></div>
+
+            </div>
+
+
+            <div class="subject-editor-section">
+
+                <div class="section-title-row">
+
+                    <div>
+
+                        <h3>
+                            PDF Notes
+                        </h3>
+
+                        <p>
+                            Attach PDF notes to this subject.
+                        </p>
+
+                    </div>
+
+                    <label
+                        class="secondary-button file-button"
+                    >
+
+                        + Add PDF
+
+                        <input
+                            id="subjectPdfInput"
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            hidden
+                            multiple
+                        >
+
+                    </label>
+
+                </div>
+
+
+                <div
+                    id="subjectPdfList"
+                    class="pdf-list"
+                ></div>
+
+            </div>
+
+
+            <div class="modal-actions">
+
+                <button
+                    class="secondary-button"
+                    type="button"
+                    data-close-subject
+                >
+                    Cancel
+                </button>
+
+                <button
+                    class="submit-task"
+                    type="submit"
+                    id="subjectSubmitButton"
+                >
+                    Create Subject
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- =======================================================
+     SCHEDULE ROW TEMPLATE
+======================================================== -->
+
+<template id="scheduleRowTemplate">
+
+    <div class="schedule-row">
+
+        <select class="schedule-day">
+
+            <option value="monday">
+                Monday
+            </option>
+
+            <option value="tuesday">
+                Tuesday
+            </option>
+
+            <option value="wednesday">
+                Wednesday
+            </option>
+
+            <option value="thursday">
+                Thursday
+            </option>
+
+            <option value="friday">
+                Friday
+            </option>
+
+            <option value="saturday">
+                Saturday
+            </option>
+
+            <option value="sunday">
+                Sunday
+            </option>
+
+        </select>
+
+
+        <input
+            class="schedule-time"
+            type="time"
+        >
+
+
+        <input
+            class="schedule-topic"
+            type="text"
+            placeholder="Topic / class"
+            autocomplete="off"
+        >
+
+
+        <input
+            class="schedule-location"
+            type="text"
+            placeholder="Room / link"
+            autocomplete="off"
+        >
+
+
+        <button
+            class="icon-danger remove-schedule"
+            type="button"
+            title="Remove schedule"
+        >
+            ×
+        </button>
+
+    </div>
+
+</template>
+
+
+<!-- =======================================================
+     SUBJECT DETAILS MODAL
+======================================================== -->
+
+<div
+    class="modal-overlay"
+    id="subjectDetailsModal"
+    aria-hidden="true"
+>
+
+    <div
+        class="modal modal-large"
+        role="dialog"
+        aria-modal="true"
+    >
+
+        <div class="modal-header">
+
+            <div>
+
+                <p class="card-eyebrow">
+                    SUBJECT
+                </p>
+
+                <h2 id="subjectDetailsTitle">
+                    Subject
+                </h2>
+
+            </div>
+
+            <button
+                class="close-modal"
+                data-close-details
+                type="button"
+                aria-label="Close"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div id="subjectDetailsContent"></div>
+
+    </div>
+
+</div>
+
+
+<!-- =======================================================
+     SCRIPT
+======================================================== -->
+
+<script src="js/app.js"></script>
+
+
+
+<!-- =======================================================
+     WEB CONFIRMATION MODAL
+======================================================== -->
+
+<div
+    class="modal-overlay"
+    id="confirmationModal"
+    aria-hidden="true"
+>
+
+    <div
+        class="modal confirmation-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirmationTitle"
+    >
+
+        <div class="confirmation-icon">!</div>
+
+        <div class="confirmation-content">
+            <p class="card-eyebrow">CONFIRM ACTION</p>
+            <h2 id="confirmationTitle">Are you sure?</h2>
+            <p id="confirmationMessage">This action cannot be undone.</p>
+        </div>
+
+        <div class="confirmation-actions">
+            <button
+                class="secondary-button"
+                id="confirmationCancel"
+                type="button"
+            >
+                Cancel
+            </button>
+
+            <button
+                class="danger-button"
+                id="confirmationConfirm"
+                type="button"
+            >
+                Yes, Delete
+            </button>
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>
