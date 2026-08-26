@@ -1,3 +1,27 @@
+# Dependencies
 node_modules/
+
+# Local SQLite database
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Environment / secrets
 .env
+.env.*
+
+# Electron build/output
+dist/
+build/
+out/
+
+# Logs
+*.log
+logs/
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# VS Code local settings
+.vscode/

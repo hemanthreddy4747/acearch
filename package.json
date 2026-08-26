@@ -1,16 +1,22 @@
 {
   "name": "acearch",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "AceArch - Student Productivity App",
+  "main": "electron.js",
   "scripts": {
-    "start": "node server/server.js"
+    "start": "node server/server.js",
+    "app": "electron.cmd electron.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3"
   }
 }

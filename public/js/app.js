@@ -87,11 +87,32 @@ let settings = {
 
 
 /* =========================================================
-   SAVE
+   SQLITE DATABASE SYNC
 ========================================================= */
 
-function saveData() {
+/*
+ * localStorage remains as a browser-side backup, but SQLite is
+ * now the primary persistent store for AceArch app data.
+ *
+ * Calendar and focus data are also stored in SQLite. PDFs remain
+ * in the existing IndexedDB system because they are binary files.
+ */
 
+let databaseReady = false;
+let databaseSaveQueue = Promise.resolve();
+
+function getDatabasePayload() {
+    return {
+        tasks,
+        subjects,
+        settings,
+        notifications,
+        calendarItems,
+        focusSessions
+    };
+}
+
+function saveLocalBackup() {
     localStorage.setItem(
         STORAGE_KEYS.tasks,
         JSON.stringify(tasks)
@@ -121,8 +142,122 @@ function saveData() {
         STORAGE_KEYS.settings,
         JSON.stringify(settings)
     );
-
 }
+
+function saveData() {
+    // Keep a local backup so AceArch can still recover if the
+    // server/database is temporarily unavailable.
+    saveLocalBackup();
+
+    if (!databaseReady) {
+        return;
+    }
+
+    const payload = getDatabasePayload();
+
+    // Queue saves so rapid UI changes cannot overwrite one another
+    // out of order.
+    databaseSaveQueue = databaseSaveQueue
+        .then(async () => {
+            const response = await fetch("/api/data", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`Database save failed: ${response.status}`);
+            }
+        })
+        .catch(error => {
+            console.error("SQLite save failed:", error);
+            showToast(
+                "Could not save to the database. Your local backup is still available.",
+                "error"
+            );
+        });
+}
+
+async function loadDatabaseData() {
+    try {
+        const response = await fetch("/api/data", {
+            cache: "no-store"
+        });
+
+        if (!response.ok) {
+            throw new Error(`Database load failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        const hasDatabaseData =
+            data.tasks.length > 0 ||
+            data.subjects.length > 0 ||
+            Object.keys(data.settings).length > 0 ||
+            data.notifications.length > 0 ||
+            data.calendarItems.length > 0 ||
+            data.focusSessions.length > 0;
+
+        if (hasDatabaseData) {
+            tasks = Array.isArray(data.tasks) ? data.tasks : [];
+            subjects = Array.isArray(data.subjects) ? data.subjects : [];
+            notifications = Array.isArray(data.notifications)
+                ? data.notifications
+                : [];
+            calendarItems = Array.isArray(data.calendarItems)
+                ? data.calendarItems
+                : [];
+            focusSessions = Array.isArray(data.focusSessions)
+                ? data.focusSessions
+                : [];
+            settings = {
+                ...defaultSettings,
+                ...(data.settings || {})
+            };
+
+            saveLocalBackup();
+            databaseReady = true;
+            return;
+        }
+
+        /*
+         * First launch after the database was added:
+         * migrate the existing localStorage data into SQLite.
+         */
+        databaseReady = true;
+
+        const hasLocalData =
+            tasks.length > 0 ||
+            subjects.length > 0 ||
+            notifications.length > 0 ||
+            calendarItems.length > 0 ||
+            focusSessions.length > 0 ||
+            Object.keys(loadStorage(STORAGE_KEYS.settings, {})).length > 0;
+
+        if (hasLocalData) {
+            saveData();
+        }
+    } catch (error) {
+        console.error("SQLite load failed:", error);
+
+        // The app can still open using its existing localStorage backup.
+        databaseReady = false;
+
+        showToast(
+            "Database unavailable. AceArch is using local backup data.",
+            "error"
+        );
+    }
+}
+
+const databaseLoadPromise = loadDatabaseData();
+
+
+/* =========================================================
+   SAVE
+========================================================= */
 
 
 /* =========================================================
@@ -389,12 +524,30 @@ function closeConfirmation(result) {
     closeModal("#confirmationModal");
 }
 
-document.querySelector("#confirmationConfirm")?.addEventListener("click", () => {
-    closeConfirmation(true);
-});
+/*
+ * Confirmation modal lives after the app.js script in index.html, so direct
+ * querySelector listeners can run before those buttons exist. Use delegated
+ * listeners instead so the buttons always work.
+ */
+document.addEventListener("click", event => {
 
-document.querySelector("#confirmationCancel")?.addEventListener("click", () => {
-    closeConfirmation(false);
+    const confirmButton =
+        event.target.closest("#confirmationConfirm");
+
+    if (confirmButton) {
+        event.preventDefault();
+        closeConfirmation(true);
+        return;
+    }
+
+    const cancelButton =
+        event.target.closest("#confirmationCancel");
+
+    if (cancelButton) {
+        event.preventDefault();
+        closeConfirmation(false);
+    }
+
 });
 
 
@@ -1360,8 +1513,241 @@ document
 
 
 /* =========================================================
+   TASK DETAILS VIEW
+========================================================= */
+
+if (!document.querySelector("#acearchTaskDetailsStyles")) {
+
+    const style =
+        document.createElement("style");
+
+    style.id =
+        "acearchTaskDetailsStyles";
+
+    style.textContent = `
+        .task-details-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .task-details-grid .card,
+        .task-description-card {
+            margin: 0;
+        }
+
+        .task-description-text {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 600px) {
+            .task-details-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    `;
+
+    document.head.appendChild(style);
+
+}
+
+
+/* =========================================================
    TASK RENDERING
 ========================================================= */
+
+function openTaskDetails(taskId) {
+
+    const task =
+        tasks.find(
+            item => item.id === taskId
+        );
+
+    if (!task) {
+        return;
+    }
+
+    let overlay =
+        document.querySelector(
+            "#taskDetailsModal"
+        );
+
+    if (!overlay) {
+
+        overlay =
+            document.createElement("div");
+
+        overlay.id =
+            "taskDetailsModal";
+
+        overlay.className =
+            "modal-overlay";
+
+        overlay.innerHTML = `
+            <div
+                class="modal modal-large"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="taskDetailsTitle"
+            >
+                <div class="modal-header">
+                    <div>
+                        <p class="card-eyebrow">TASK DETAILS</p>
+                        <h2 id="taskDetailsTitle"></h2>
+                    </div>
+
+                    <button
+                        class="close-modal"
+                        id="taskDetailsClose"
+                        type="button"
+                        aria-label="Close"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <div id="taskDetailsContent"></div>
+
+                <div class="confirmation-actions">
+                    <button
+                        class="secondary-button"
+                        id="taskDetailsEdit"
+                        type="button"
+                    >
+                        Edit Task
+                    </button>
+
+                    <button
+                        class="danger-button"
+                        id="taskDetailsDelete"
+                        type="button"
+                    >
+                        Delete Task
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener(
+            "click",
+            event => {
+
+                if (
+                    event.target === overlay ||
+                    event.target.closest("#taskDetailsClose")
+                ) {
+                    closeModal("#taskDetailsModal");
+                }
+
+            }
+        );
+
+        overlay
+            .querySelector("#taskDetailsEdit")
+            ?.addEventListener(
+                "click",
+                () => {
+
+                    closeModal(
+                        "#taskDetailsModal"
+                    );
+
+                    editTask(taskId);
+
+                }
+            );
+
+        overlay
+            .querySelector("#taskDetailsDelete")
+            ?.addEventListener(
+                "click",
+                async () => {
+
+                    closeModal(
+                        "#taskDetailsModal"
+                    );
+
+                    await deleteTask(taskId);
+
+                }
+            );
+
+    }
+
+    const title =
+        overlay.querySelector(
+            "#taskDetailsTitle"
+        );
+
+    const content =
+        overlay.querySelector(
+            "#taskDetailsContent"
+        );
+
+    if (title) {
+        title.textContent =
+            task.title || "Task";
+    }
+
+    if (content) {
+
+        const description =
+            task.description?.trim() ||
+            "No description added.";
+
+        const subject =
+            task.subject?.trim() ||
+            "No subject";
+
+        const status =
+            task.completed
+                ? "Completed"
+                : "Active";
+
+        content.innerHTML = `
+            <div class="task-details-grid">
+
+                <div class="card">
+                    <p class="card-eyebrow">SUBJECT</p>
+                    <p>${escapeHTML(subject)}</p>
+                </div>
+
+                <div class="card">
+                    <p class="card-eyebrow">DEADLINE</p>
+                    <p>${escapeHTML(formatDate(task.deadline))}</p>
+                </div>
+
+                <div class="card">
+                    <p class="card-eyebrow">PRIORITY</p>
+                    <p>${escapeHTML(task.priority || "Medium")}</p>
+                </div>
+
+                <div class="card">
+                    <p class="card-eyebrow">STATUS</p>
+                    <p>${escapeHTML(status)}</p>
+                </div>
+
+            </div>
+
+            <div class="card task-description-card">
+                <p class="card-eyebrow">DESCRIPTION</p>
+                <p class="task-description-text">${escapeHTML(description)}</p>
+            </div>
+        `;
+
+    }
+
+    openModal(
+        "#taskDetailsModal"
+    );
+
+}
+
 
 function taskHTML(task) {
 
@@ -1631,6 +2017,26 @@ document.addEventListener(
 document.addEventListener(
     "click",
     event => {
+
+        const taskCard =
+            event.target.closest(
+                "[data-task-id]"
+            );
+
+        if (
+            taskCard &&
+            !event.target.closest(
+                "button, input, a, [data-task-check]"
+            )
+        ) {
+
+            openTaskDetails(
+                taskCard.dataset.taskId
+            );
+
+            return;
+
+        }
 
         const editButton =
             event.target.closest(
@@ -5798,7 +6204,13 @@ window.renderAll =
    INITIALIZE
 ========================================================= */
 
-function initializeAceArch() {
+async function initializeAceArch() {
+
+    /*
+     * Wait for SQLite before rendering the app. This makes the
+     * database the source of truth when AceArch starts.
+     */
+    await databaseLoadPromise;
 
     applyCustomization();
 
