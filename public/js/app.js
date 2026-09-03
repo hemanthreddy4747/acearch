@@ -6,6 +6,307 @@
 
 
 /* =========================================================
+   ACCOUNT / LOGIN
+========================================================= */
+
+const AUTH_KEYS = {
+    token: "acearch_auth_token",
+    user: "acearch_auth_user"
+};
+
+let authMode = "login";
+let authInitializationPromise = Promise.resolve();
+
+function getAuthToken() {
+    try {
+        return localStorage.getItem(AUTH_KEYS.token);
+    } catch {
+        return null;
+    }
+}
+
+function getAuthUser() {
+    try {
+        const raw = localStorage.getItem(AUTH_KEYS.user);
+        return raw ? JSON.parse(raw) : null;
+    } catch (error) {
+        console.warn("Could not load authenticated user:", error);
+        return null;
+    }
+}
+
+function setAuthData(token, user) {
+    localStorage.setItem(AUTH_KEYS.token, token);
+    localStorage.setItem(AUTH_KEYS.user, JSON.stringify(user));
+}
+
+function clearAuthData() {
+    localStorage.removeItem(AUTH_KEYS.token);
+    localStorage.removeItem(AUTH_KEYS.user);
+}
+
+function setAuthMessage(message, type = "error") {
+    const element = document.getElementById("authMessage");
+    if (!element) return;
+
+    element.textContent = message;
+    element.classList.toggle("success", type === "success");
+}
+
+function updatePasswordToggle() {
+    const password = document.getElementById("authPassword");
+    const toggle = document.getElementById("authPasswordToggle");
+    if (!password || !toggle) return;
+
+    const visible = password.type === "text";
+    toggle.setAttribute("aria-pressed", String(visible));
+    toggle.setAttribute("aria-label", visible ? "Hide password" : "Show password");
+    toggle.innerHTML = visible
+        ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.2A10.8 10.8 0 0 1 12 5c5.1 0 8.8 4.2 10 7a12.8 12.8 0 0 1-3.2 4.6M6.2 6.3C4.3 7.6 2.9 9.5 2 12c1.2 2.8 4.9 7 10 7 1.3 0 2.5-.2 3.6-.7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+        : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.7-7 10-7 10 7 10 7-3.7 7-10 7S2 12 2 12Z" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`;
+}
+
+function updateAuthMode() {
+    const isRegister = authMode === "register";
+
+    document.getElementById("loginTab")?.classList.toggle("active", !isRegister);
+    document.getElementById("registerTab")?.classList.toggle("active", isRegister);
+
+    const passwordElement = document.getElementById("authPassword");
+    if (passwordElement) {
+        passwordElement.autocomplete = isRegister ? "new-password" : "current-password";
+        passwordElement.type = "password";
+    }
+    updatePasswordToggle();
+
+    const eyebrow = document.getElementById("authEyebrow");
+    const title = document.getElementById("authTitle");
+    const description = document.getElementById("authDescription");
+    const submit = document.getElementById("authSubmit");
+
+    if (eyebrow) eyebrow.textContent = isRegister ? "GET STARTED" : "WELCOME BACK";
+    if (title) title.textContent = isRegister ? "Create your AceArch account" : "Sign in to AceArch";
+    if (description) description.textContent = isRegister ? "Create your AceArch account to use your personal workspace." : "Sign in to open your AceArch workspace.";
+    if (submit) submit.textContent = isRegister ? "Create account" : "Log in";
+
+    setAuthMessage("");
+}
+
+function resetUserDataInMemory() {
+    tasks = [];
+    calendarItems = [];
+    subjects = [];
+    focusSessions = [];
+    notifications = [];
+    settings = { ...defaultSettings };
+    databaseReady = false;
+    databaseUserId = null;
+    databaseLoadPromise = Promise.resolve();
+    databaseSaveQueue = Promise.resolve();
+    dataSessionGeneration += 1;
+    editingSubjectId = null;
+    selectedCalendarDate = todayString();
+    calendarDate = new Date();
+}
+
+function applyAuthenticationAppearance() {
+    document.documentElement.style.setProperty("--accent", defaultSettings.accent);
+    document.body.style.fontFamily = defaultSettings.font;
+    document.body.dataset.density = defaultSettings.density;
+    document.body.classList.remove("light");
+    document.querySelectorAll("[data-theme], [data-density], .color-choice").forEach(element => element.classList.remove("selected"));
+}
+
+function playWorkspaceTransition() {
+    const appElement = document.getElementById("acearchApp");
+    if (!appElement) return;
+
+    appElement.classList.remove("workspace-enter");
+    void appElement.offsetWidth;
+    appElement.classList.add("workspace-enter");
+
+    window.setTimeout(() => {
+        appElement.classList.remove("workspace-enter");
+    }, 550);
+}
+
+function showAppForSession() {
+    const screen = document.getElementById("authScreen");
+    const appElement = document.getElementById("acearchApp");
+    const user = getAuthUser();
+
+    screen?.classList.add("hidden");
+    appElement?.classList.remove("auth-locked");
+    playWorkspaceTransition();
+
+    const usernameElement = document.getElementById("accountUsername");
+    const avatarElement = document.getElementById("accountAvatar");
+    const settingsUsername = document.getElementById("settingsAccountUsername");
+    const settingsAvatar = document.getElementById("settingsAccountAvatar");
+
+    const username = user?.username || "Account";
+    const avatar = username.trim().charAt(0).toUpperCase() || "A";
+
+    if (usernameElement) usernameElement.textContent = username;
+    if (avatarElement) avatarElement.textContent = avatar;
+    if (settingsUsername) settingsUsername.textContent = username;
+    if (settingsAvatar) settingsAvatar.textContent = avatar;
+}
+
+function showLoginScreen() {
+    resetUserDataInMemory();
+    applyAuthenticationAppearance();
+
+    document.getElementById("authScreen")?.classList.remove("hidden");
+    document.getElementById("acearchApp")?.classList.add("auth-locked");
+
+    const password = document.getElementById("authPassword");
+    if (password) {
+        password.value = "";
+        password.type = "password";
+    }
+    updatePasswordToggle();
+
+    document.getElementById("authUsername")?.focus();
+}
+
+async function handleAuthSubmit(event) {
+    event.preventDefault();
+
+    const usernameElement = document.getElementById("authUsername");
+    const passwordElement = document.getElementById("authPassword");
+    const submitButton = document.getElementById("authSubmit");
+
+    const username = usernameElement?.value.trim() || "";
+    const password = passwordElement?.value || "";
+
+    if (!username || !password) {
+        setAuthMessage("Please enter your username and password.");
+        return;
+    }
+    if (!/^[A-Za-z0-9_]{3,30}$/.test(username)) {
+        setAuthMessage("Username must be 3–30 characters and use only letters, numbers, or underscores.");
+        return;
+    }
+    if (password.length < 6) {
+        setAuthMessage("Password must be at least 6 characters.");
+        return;
+    }
+
+    if (submitButton) submitButton.disabled = true;
+
+    try {
+        const endpoint = authMode === "register" ? "/api/auth/register" : "/api/auth/login";
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            setAuthMessage(result.error || "Authentication failed.");
+            return;
+        }
+
+        resetUserDataInMemory();
+        setAuthData(result.token, result.user);
+        document.getElementById("authForm")?.reset();
+        showAppForSession();
+
+        await startAuthenticatedDatabaseLoad();
+        applyCustomization();
+        renderAll();
+        renderFocusPage();
+        navigate("dashboard");
+
+    } catch (error) {
+        console.error("Authentication request failed:", error);
+        setAuthMessage("Could not connect to the AceArch server.");
+    } finally {
+        if (submitButton) submitButton.disabled = false;
+    }
+}
+
+async function verifyExistingSession() {
+    const token = getAuthToken();
+
+    if (!token) {
+        showLoginScreen();
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/auth/me", {
+            method: "GET",
+            cache: "no-store",
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+            clearAuthData();
+            showLoginScreen();
+            return;
+        }
+
+        const result = await response.json();
+        if (!result.authenticated || !result.user) {
+            clearAuthData();
+            showLoginScreen();
+            return;
+        }
+
+        setAuthData(token, result.user);
+        showAppForSession();
+        await startAuthenticatedDatabaseLoad();
+
+    } catch (error) {
+        console.error("Session verification failed:", error);
+        if (getAuthUser()) {
+            showAppForSession();
+            await loadUserLocalBackup(getAuthUser().id);
+        } else {
+            showLoginScreen();
+        }
+    }
+}
+
+function initializeFrontendAuth() {
+    document.getElementById("loginTab")?.addEventListener("click", () => {
+        authMode = "login";
+        updateAuthMode();
+    });
+
+    document.getElementById("registerTab")?.addEventListener("click", () => {
+        authMode = "register";
+        updateAuthMode();
+    });
+
+    document.getElementById("authPasswordToggle")?.addEventListener("click", () => {
+        const password = document.getElementById("authPassword");
+        if (!password) return;
+        password.type = password.type === "password" ? "text" : "password";
+        updatePasswordToggle();
+        password.focus();
+        password.setSelectionRange(password.value.length, password.value.length);
+    });
+
+    document.getElementById("authForm")?.addEventListener("submit", handleAuthSubmit);
+
+    document.getElementById("logoutButton")?.addEventListener("click", () => {
+        clearAuthData();
+        showLoginScreen();
+        authMode = "login";
+        updateAuthMode();
+    });
+
+    updateAuthMode();
+    authInitializationPromise = Promise.resolve().then(verifyExistingSession);
+}
+
+initializeFrontendAuth();
+
+/* =========================================================
    STORAGE
 ========================================================= */
 
@@ -25,9 +326,11 @@ const defaultSettings = {
     font: "Inter",
     density: "comfortable",
 
-    taskNotifications: true,
     deadlineNotifications: true,
-    studyNotifications: true,
+    deadlineReminderDays: 3,
+    deadlineReminderTime: "18:00",
+    dailyDeadlineReminders: false,
+    dailyDeadlineReminderDays: 3,
 
     confirmDelete: true,
     autoCalendarTasks: true
@@ -59,31 +362,12 @@ function loadStorage(key, fallback) {
 }
 
 
-let tasks =
-    loadStorage(STORAGE_KEYS.tasks, []);
-
-let calendarItems =
-    loadStorage(STORAGE_KEYS.calendar, []);
-
-let subjects =
-    loadStorage(STORAGE_KEYS.subjects, []);
-
-let focusSessions =
-    loadStorage(STORAGE_KEYS.focus, []);
-
-let notifications =
-    loadStorage(
-        STORAGE_KEYS.notifications,
-        []
-    );
-
-let settings = {
-    ...defaultSettings,
-    ...loadStorage(
-        STORAGE_KEYS.settings,
-        {}
-    )
-};
+let tasks = [];
+let calendarItems = [];
+let subjects = [];
+let focusSessions = [];
+let notifications = [];
+let settings = { ...defaultSettings };
 
 
 /* =========================================================
@@ -99,7 +383,9 @@ let settings = {
  */
 
 let databaseReady = false;
+let databaseUserId = null;
 let databaseSaveQueue = Promise.resolve();
+let dataSessionGeneration = 0;
 
 function getDatabasePayload() {
     return {
@@ -112,60 +398,91 @@ function getDatabasePayload() {
     };
 }
 
+function getUserStorageKey(key, userId = getAuthUser()?.id) {
+    return userId ? `${key}:${userId}` : null;
+}
+
 function saveLocalBackup() {
-    localStorage.setItem(
-        STORAGE_KEYS.tasks,
-        JSON.stringify(tasks)
-    );
+    const userId = getAuthUser()?.id;
+    if (!userId) return;
 
-    localStorage.setItem(
-        STORAGE_KEYS.calendar,
-        JSON.stringify(calendarItems)
-    );
+    const write = (key, value) => {
+        const storageKey = getUserStorageKey(key, userId);
+        if (storageKey) localStorage.setItem(storageKey, JSON.stringify(value));
+    };
 
-    localStorage.setItem(
-        STORAGE_KEYS.subjects,
-        JSON.stringify(subjects)
-    );
+    write(STORAGE_KEYS.tasks, tasks);
+    write(STORAGE_KEYS.calendar, calendarItems);
+    write(STORAGE_KEYS.subjects, subjects);
+    write(STORAGE_KEYS.focus, focusSessions);
+    write(STORAGE_KEYS.notifications, notifications);
+    write(STORAGE_KEYS.settings, settings);
+}
 
-    localStorage.setItem(
-        STORAGE_KEYS.focus,
-        JSON.stringify(focusSessions)
-    );
+function loadUserLocalBackup(userId) {
+    if (!userId) return false;
 
-    localStorage.setItem(
-        STORAGE_KEYS.notifications,
-        JSON.stringify(notifications)
-    );
+    const read = (key, fallback) => {
+        const storageKey = getUserStorageKey(key, userId);
+        return storageKey ? loadStorage(storageKey, fallback) : fallback;
+    };
 
-    localStorage.setItem(
-        STORAGE_KEYS.settings,
-        JSON.stringify(settings)
-    );
+    tasks = read(STORAGE_KEYS.tasks, []);
+    calendarItems = read(STORAGE_KEYS.calendar, []);
+    subjects = read(STORAGE_KEYS.subjects, []);
+    focusSessions = read(STORAGE_KEYS.focus, []);
+    notifications = read(STORAGE_KEYS.notifications, []);
+    settings = { ...defaultSettings, ...read(STORAGE_KEYS.settings, {}) };
+    databaseUserId = userId;
+    return true;
+}
+
+function clearUserLocalBackup(userId) {
+    if (!userId) return;
+    Object.values(STORAGE_KEYS).forEach(key => {
+        const storageKey = getUserStorageKey(key, userId);
+        if (storageKey) localStorage.removeItem(storageKey);
+    });
 }
 
 function saveData() {
-    // Keep a local backup so AceArch can still recover if the
-    // server/database is temporarily unavailable.
+    const token = getAuthToken();
+    const userId = getAuthUser()?.id;
+
+    if (!token || !userId) {
+        return;
+    }
+
     saveLocalBackup();
 
-    if (!databaseReady) {
+    if (!databaseReady || databaseUserId !== userId) {
         return;
     }
 
     const payload = getDatabasePayload();
+    const generation = dataSessionGeneration;
 
-    // Queue saves so rapid UI changes cannot overwrite one another
-    // out of order.
     databaseSaveQueue = databaseSaveQueue
         .then(async () => {
+            // Never let a queued save from an old account/state run under a new account.
+            if (generation !== dataSessionGeneration || getAuthToken() !== token || getAuthUser()?.id !== userId) {
+                return;
+            }
+
             const response = await fetch("/api/data", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify(payload)
             });
+
+            if (response.status === 401) {
+                clearAuthData();
+                showLoginScreen();
+                throw new Error("Authentication expired.");
+            }
 
             if (!response.ok) {
                 throw new Error(`Database save failed: ${response.status}`);
@@ -173,18 +490,32 @@ function saveData() {
         })
         .catch(error => {
             console.error("SQLite save failed:", error);
-            showToast(
-                "Could not save to the database. Your local backup is still available.",
-                "error"
-            );
+            if (getAuthUser()?.id === userId) {
+                showToast("Could not save to the database. Your local backup is still available.", "error");
+            }
         });
 }
 
 async function loadDatabaseData() {
+    const token = getAuthToken();
+    const userId = getAuthUser()?.id;
+
+    if (!token || !userId) {
+        resetUserDataInMemory();
+        return;
+    }
+
     try {
         const response = await fetch("/api/data", {
-            cache: "no-store"
+            cache: "no-store",
+            headers: { Authorization: `Bearer ${token}` }
         });
+
+        if (response.status === 401) {
+            clearAuthData();
+            showLoginScreen();
+            throw new Error("AUTHENTICATION_REQUIRED");
+        }
 
         if (!response.ok) {
             throw new Error(`Database load failed: ${response.status}`);
@@ -192,68 +523,60 @@ async function loadDatabaseData() {
 
         const data = await response.json();
 
-        const hasDatabaseData =
-            data.tasks.length > 0 ||
-            data.subjects.length > 0 ||
-            Object.keys(data.settings).length > 0 ||
-            data.notifications.length > 0 ||
-            data.calendarItems.length > 0 ||
-            data.focusSessions.length > 0;
-
-        if (hasDatabaseData) {
-            tasks = Array.isArray(data.tasks) ? data.tasks : [];
-            subjects = Array.isArray(data.subjects) ? data.subjects : [];
-            notifications = Array.isArray(data.notifications)
-                ? data.notifications
-                : [];
-            calendarItems = Array.isArray(data.calendarItems)
-                ? data.calendarItems
-                : [];
-            focusSessions = Array.isArray(data.focusSessions)
-                ? data.focusSessions
-                : [];
-            settings = {
-                ...defaultSettings,
-                ...(data.settings || {})
-            };
-
-            saveLocalBackup();
-            databaseReady = true;
+        // Only accept data if the same account is still active.
+        if (getAuthToken() !== token || getAuthUser()?.id !== userId) {
             return;
         }
 
-        /*
-         * First launch after the database was added:
-         * migrate the existing localStorage data into SQLite.
-         */
+        tasks = Array.isArray(data.tasks) ? data.tasks : [];
+        subjects = Array.isArray(data.subjects) ? data.subjects : [];
+        notifications = Array.isArray(data.notifications) ? data.notifications : [];
+        calendarItems = Array.isArray(data.calendarItems) ? data.calendarItems : [];
+        focusSessions = Array.isArray(data.focusSessions) ? data.focusSessions : [];
+        settings = { ...defaultSettings, ...(data.settings || {}) };
+
         databaseReady = true;
+        databaseUserId = userId;
+        saveLocalBackup();
 
-        const hasLocalData =
-            tasks.length > 0 ||
-            subjects.length > 0 ||
-            notifications.length > 0 ||
-            calendarItems.length > 0 ||
-            focusSessions.length > 0 ||
-            Object.keys(loadStorage(STORAGE_KEYS.settings, {})).length > 0;
+        applyCustomization();
+        renderAll();
+        renderFocusPage();
+        showAppForSession();
 
-        if (hasLocalData) {
-            saveData();
-        }
     } catch (error) {
+        if (error.message === "AUTHENTICATION_REQUIRED") {
+            return;
+        }
+
         console.error("SQLite load failed:", error);
-
-        // The app can still open using its existing localStorage backup.
         databaseReady = false;
-
-        showToast(
-            "Database unavailable. AceArch is using local backup data.",
-            "error"
-        );
+        databaseUserId = userId;
+        loadUserLocalBackup(userId);
+        applyCustomization();
+        renderAll();
+        renderFocusPage();
+        showToast("Database unavailable. AceArch is using this account's local backup data.", "error");
     }
 }
 
-const databaseLoadPromise = loadDatabaseData();
+let databaseLoadPromise = Promise.resolve();
 
+async function startAuthenticatedDatabaseLoad() {
+    const token = getAuthToken();
+    const userId = getAuthUser()?.id;
+
+    if (!token || !userId) {
+        databaseLoadPromise = Promise.resolve();
+        return;
+    }
+
+    // Invalidate any previous account's state before loading the new account.
+    databaseReady = false;
+    databaseUserId = null;
+    databaseLoadPromise = loadDatabaseData();
+    await databaseLoadPromise;
+}
 
 /* =========================================================
    SAVE
@@ -419,89 +742,28 @@ function isPastDate(value) {
 
 
 function showToast(message, type = "info") {
-
-    let container =
-        document.querySelector(
-            "#acearchToastContainer"
-        );
-
-    if (!container) {
-
-        container =
-            document.createElement("div");
-
-        container.id =
-            "acearchToastContainer";
-
-        container.style.cssText = `
-            position:fixed;
-            right:20px;
-            bottom:20px;
-            z-index:99999;
-            display:flex;
-            flex-direction:column;
-            gap:10px;
-            pointer-events:none;
-        `;
-
-        document.body.appendChild(
-            container
-        );
-
-    }
-
-    const toast =
-        document.createElement("div");
-
-    toast.textContent = message;
-
-    toast.style.cssText = `
-        padding:12px 16px;
-        border-radius:12px;
-        background:var(--card,#18181f);
-        color:var(--text,#fff);
-        border:1px solid var(--border,#2a2a35);
-        box-shadow:0 10px 30px rgba(0,0,0,.25);
-        font-size:14px;
-        max-width:320px;
-        pointer-events:auto;
-        transition:opacity .25s ease;
-    `;
-
+    // AceArch no longer uses bottom-right toast popups.
+    // Important actions use the existing confirmation/modal UI, while
+    // background failures remain available in the developer console.
     if (type === "error") {
-        toast.style.borderColor = "#ef4444";
+        console.warn("AceArch:", message);
     }
-
-    if (type === "success") {
-        toast.style.borderColor = "#22c55e";
-    }
-
-    container.appendChild(toast);
-
-    setTimeout(() => {
-
-        toast.style.opacity = "0";
-
-        setTimeout(
-            () => toast.remove(),
-            300
-        );
-
-    }, 2800);
-
 }
 
 
 let confirmationResolver = null;
 
-function confirmAction(message) {
-    if (!settings.confirmDelete) {
+function confirmAction(message, options = {}) {
+    const force = options.force === true;
+    if (!force && !settings.confirmDelete) {
         return Promise.resolve(true);
     }
 
     return new Promise(resolve => {
         const overlay = document.querySelector("#confirmationModal");
         const messageElement = document.querySelector("#confirmationMessage");
+        const titleElement = document.querySelector("#confirmationTitle");
+        const confirmButton = document.querySelector("#confirmationConfirm");
 
         if (!overlay || !messageElement) {
             resolve(true);
@@ -510,6 +772,8 @@ function confirmAction(message) {
 
         confirmationResolver = resolve;
         messageElement.textContent = message;
+        if (titleElement) titleElement.textContent = options.title || "Are you sure?";
+        if (confirmButton) confirmButton.textContent = options.confirmText || "Yes, Delete";
         openModal("#confirmationModal");
     });
 }
@@ -1466,30 +1730,6 @@ document
             }
 
 
-            if (
-                settings.taskNotifications
-            ) {
-
-                notifications.push({
-
-                    id: createId(),
-
-                    title:
-                        "New task created",
-
-                    message:
-                        `${title} is due ${formatDate(deadline)}.`,
-
-                    createdAt:
-                        new Date().toISOString(),
-
-                    read: false
-
-                });
-
-            }
-
-
             saveData();
 
 
@@ -1778,23 +2018,22 @@ function taskHTML(task) {
                 <div class="task-meta">
 
                     ${escapeHTML(
-                        task.subject ||
-                        "No subject"
-                    )}
+        task.subject ||
+        "No subject"
+    )}
 
                     · Due ${escapeHTML(
-                        formatDate(task.deadline)
-                    )}
+        formatDate(task.deadline)
+    )}
 
                     · ${escapeHTML(
-                        task.priority
-                    )}
+        task.priority
+    )}
 
-                    ${
-                        overdue
-                            ? ` · <strong>Overdue</strong>`
-                            : ""
-                    }
+                    ${overdue
+            ? ` · <strong>Overdue</strong>`
+            : ""
+        }
 
                 </div>
 
@@ -1806,16 +2045,19 @@ function taskHTML(task) {
                     type="button"
                     class="task-edit"
                     data-task-edit="${escapeHTML(task.id)}"
-                    title="Edit task">
-                    ✎
+                    title="Edit task"
+                    aria-label="Edit task">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17v3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m14.5 7.5 2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                    <span>Edit</span>
                 </button>
 
                 <button
                     type="button"
                     class="task-delete"
                     data-task-delete="${escapeHTML(task.id)}"
-                    title="Delete task">
-                    ×
+                    title="Delete task"
+                    aria-label="Delete task">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v6m4-6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
 
             </div>
@@ -2157,20 +2399,20 @@ function renderDashboard() {
 
                         <strong>
                             ${escapeHTML(
-                                item.title
-                            )}
+                    item.title
+                )}
                         </strong>
 
                         <small>
                             ${escapeHTML(
-                                formatDate(
-                                    item.date
-                                )
-                            )}
+                    formatDate(
+                        item.date
+                    )
+                )}
                             ·
                             ${escapeHTML(
-                                item.type
-                            )}
+                    item.type
+                )}
                         </small>
 
                     </div>
@@ -2243,8 +2485,8 @@ function renderDashboardSubjects() {
 
                             <div class="task-title">
                                 ${escapeHTML(
-                                    subject.name
-                                )}
+                    subject.name
+                )}
                             </div>
 
                             <div class="task-meta">
@@ -2688,10 +2930,9 @@ function createCalendarDay(
             ${date.getDate()}
         </span>
 
-        ${
-            items.length
-                ? `<span class="day-dot"></span>`
-                : ""
+        ${items.length
+            ? `<span class="day-dot"></span>`
+            : ""
         }
 
     `;
@@ -2792,20 +3033,19 @@ function renderSelectedDate() {
 
                     <strong>
                         ${escapeHTML(
-                            item.title
-                        )}
+                item.title
+            )}
                     </strong>
 
                     <small>
                         ${escapeHTML(
-                            item.type
-                        )}
+                item.type
+            )}
 
-                        ${
-                            item.taskId
-                                ? " · Task"
-                                : ""
-                        }
+                        ${item.taskId
+                    ? " · Task"
+                    : ""
+                }
                     </small>
 
                 </div>
@@ -2996,331 +3236,146 @@ document
 ========================================================= */
 
 let editingSubjectId = null;
+let pendingSubjectColor = "#7c5cff";
 
+function updateSubjectColorUI() {
+    const colorInput = document.querySelector("#subjectColor");
+    const value = document.querySelector("#subjectColorValue");
+    const swatch = document.querySelector("#subjectPreviewSwatch");
+    const namePreview = document.querySelector("#subjectPreviewName");
+    const nameInput = document.querySelector("#subjectName");
+
+    const color = pendingSubjectColor || colorInput?.value || "#7c5cff";
+    if (colorInput && colorInput.value.toLowerCase() !== color.toLowerCase()) colorInput.value = color;
+    if (value) value.textContent = color.toUpperCase();
+    if (swatch) swatch.style.background = color;
+    if (namePreview) namePreview.textContent = nameInput?.value.trim() || "Your subject";
+}
 
 function prepareSubjectModal() {
-
     editingSubjectId = null;
+    const form = document.querySelector("#subjectForm");
+    if (form) form.reset();
 
-    const form =
-        document.querySelector(
-            "#subjectForm"
-        );
+    pendingSubjectColor = "#7c5cff";
+    const color = document.querySelector("#subjectColor");
+    if (color) color.value = pendingSubjectColor;
 
-    if (form) {
-        form.reset();
-    }
+    const heading = document.querySelector("#subjectModal h2");
+    if (heading) heading.textContent = "Add Subject";
 
+    const submit = document.querySelector("#subjectForm [type='submit']");
+    if (submit) submit.textContent = "Create Subject";
 
-    const heading =
-        document.querySelector(
-            "#subjectModal h2"
-        );
-
-    if (heading) {
-        heading.textContent =
-            "Add Subject";
-    }
-
-
-    const submit =
-        document.querySelector(
-            "#subjectForm [type='submit']"
-        );
-
-    if (submit) {
-        submit.textContent =
-            "Create Subject";
-    }
-
+    updateSubjectColorUI();
 }
 
+document.querySelector("#addSubjectButton")?.addEventListener("click", () => {
+    prepareSubjectModal();
+    openModal("#subjectModal");
+});
 
-document
-    .querySelector(
-        "#addSubjectButton"
-    )
-    ?.addEventListener(
-        "click",
-        () => {
+document.querySelector("#subjectForm")?.addEventListener("submit", event => {
+    event.preventDefault();
 
-            prepareSubjectModal();
+    const name = document.querySelector("#subjectName")?.value.trim() || "";
+    const color = pendingSubjectColor || document.querySelector("#subjectColor")?.value || "#7c5cff";
 
-            openModal(
-                "#subjectModal"
-            );
-
-        }
-    );
-
-
-document
-    .querySelector(
-        "#subjectForm"
-    )
-    ?.addEventListener(
-        "submit",
-        event => {
-
-            event.preventDefault();
-
-
-            const name =
-                document
-                    .querySelector(
-                        "#subjectName"
-                    )
-                    ?.value
-                    .trim();
-
-
-            const color =
-                document
-                    .querySelector(
-                        "#subjectColor"
-                    )?.value ||
-                "#7c5cff";
-
-
-            if (!name) {
-
-                showToast(
-                    "Enter a subject name.",
-                    "error"
-                );
-
-                return;
-
-            }
-
-
-            const duplicate =
-                subjects.some(
-                    subject =>
-                        subject.name
-                            .toLowerCase() ===
-                        name.toLowerCase() &&
-                        subject.id !==
-                        editingSubjectId
-                );
-
-
-            if (duplicate) {
-
-                showToast(
-                    "That subject already exists.",
-                    "error"
-                );
-
-                return;
-
-            }
-
-
-            if (editingSubjectId) {
-
-                const subject =
-                    subjects.find(
-                        item =>
-                            item.id ===
-                            editingSubjectId
-                    );
-
-                if (subject) {
-
-                    const oldName =
-                        subject.name;
-
-                    subject.name =
-                        name;
-
-                    subject.color =
-                        color;
-
-                    tasks.forEach(task => {
-
-                        if (
-                            task.subject ===
-                            oldName
-                        ) {
-
-                            task.subject =
-                                name;
-
-                        }
-
-                    });
-
-                }
-
-            } else {
-
-                subjects.push({
-
-                    id: createId(),
-
-                    name,
-
-                    color,
-
-                    schedule: [],
-
-                    notes: [],
-
-                    createdAt:
-                        new Date().toISOString()
-
-                });
-
-            }
-
-
-            saveData();
-
-            event.target.reset();
-
-            closeModal(
-                "#subjectModal"
-            );
-
-            renderSubjects();
-
-            renderDashboard();
-
-            showToast(
-                editingSubjectId
-                    ? "Subject updated."
-                    : "Subject created.",
-                "success"
-            );
-
-            editingSubjectId = null;
-
-        }
-    );
-
-
-function editSubject(subjectId) {
-
-    const subject =
-        subjects.find(
-            item =>
-                item.id === subjectId
-        );
-
-    if (!subject) {
+    if (!name) {
+        showToast("Enter a subject name.", "error");
+        document.querySelector("#subjectName")?.focus();
         return;
     }
 
-
-    editingSubjectId =
-        subjectId;
-
-
-    const name =
-        document.querySelector(
-            "#subjectName"
-        );
-
-    const color =
-        document.querySelector(
-            "#subjectColor"
-        );
-
-
-    if (name) {
-        name.value =
-            subject.name;
-    }
-
-    if (color) {
-        color.value =
-            subject.color ||
-            "#7c5cff";
-    }
-
-
-    const heading =
-        document.querySelector(
-            "#subjectModal h2"
-        );
-
-    if (heading) {
-        heading.textContent =
-            "Edit Subject";
-    }
-
-
-    const submit =
-        document.querySelector(
-            "#subjectForm [type='submit']"
-        );
-
-    if (submit) {
-        submit.textContent =
-            "Save Changes";
-    }
-
-
-    openModal(
-        "#subjectModal"
+    const duplicate = subjects.some(subject =>
+        String(subject.name || "").toLowerCase() === name.toLowerCase() &&
+        subject.id !== editingSubjectId
     );
 
-}
-
-
-async function deleteSubject(subjectId) {
-
-    const subject =
-        subjects.find(
-            item =>
-                item.id === subjectId
-        );
-
-    if (!subject) {
+    if (duplicate) {
+        showToast("That subject already exists.", "error");
         return;
     }
 
+    const wasEditing = Boolean(editingSubjectId);
 
-    if (!(await confirmAction(
-        `Delete "${subject.name}"? The subject will be removed. Existing tasks will remain but will no longer be associated with this subject.`
-    ))) {
-        return;
-    }
-
-
-    tasks.forEach(task => {
-
-        if (
-            task.subject ===
-            subject.name
-        ) {
-
-            task.subject = "";
-
+    if (wasEditing) {
+        const subject = subjects.find(item => item.id === editingSubjectId);
+        if (subject) {
+            const oldName = subject.name;
+            subject.name = name;
+            subject.color = color;
+            tasks.forEach(task => {
+                if (task.subject === oldName) task.subject = name;
+            });
         }
-
-    });
-
-
-    subjects =
-        subjects.filter(
-            item =>
-                item.id !== subjectId
-        );
-
+    } else {
+        subjects.push({
+            id: createId(),
+            name,
+            color,
+            schedule: [],
+            notes: [],
+            createdAt: new Date().toISOString()
+        });
+    }
 
     saveData();
+    event.target.reset();
+    closeModal("#subjectModal");
+    renderSubjects();
+    renderDashboard();
+    showToast(wasEditing ? "Subject updated." : "Subject created.", "success");
+    editingSubjectId = null;
+});
 
-    renderAll();
+document.querySelector("#subjectName")?.addEventListener("input", updateSubjectColorUI);
+document.querySelector("#subjectColor")?.addEventListener("input", event => {
+    pendingSubjectColor = event.target.value || "#7c5cff";
+    updateSubjectColorUI();
+});
 
-    showToast(
-        "Subject deleted.",
-        "success"
-    );
+document.querySelector("#subjectColor")?.addEventListener("change", event => {
+    pendingSubjectColor = event.target.value || "#7c5cff";
+    updateSubjectColorUI();
+    event.target.blur();
+});
 
+function editSubject(subjectId) {
+    const subject = subjects.find(item => item.id === subjectId);
+    if (!subject) return;
+
+    editingSubjectId = subjectId;
+    const name = document.querySelector("#subjectName");
+    const color = document.querySelector("#subjectColor");
+    if (name) name.value = subject.name;
+    pendingSubjectColor = subject.color || "#7c5cff";
+    if (color) color.value = pendingSubjectColor;
+
+    const heading = document.querySelector("#subjectModal h2");
+    if (heading) heading.textContent = "Edit Subject";
+    const submit = document.querySelector("#subjectForm [type='submit']");
+    if (submit) submit.textContent = "Save Changes";
+
+    updateSubjectColorUI();
+    openModal("#subjectModal");
 }
 
+async function deleteSubject(subjectId) {
+    const subject = subjects.find(item => item.id === subjectId);
+    if (!subject) return;
+
+    if (!(await confirmAction(`Delete "${subject.name}"? The subject will be removed. Existing tasks will remain but will no longer be associated with this subject.`))) return;
+
+    tasks.forEach(task => {
+        if (task.subject === subject.name) task.subject = "";
+    });
+
+    subjects = subjects.filter(item => item.id !== subjectId);
+    saveData();
+    renderAll();
+    showToast("Subject deleted.", "success");
+}
 
 /* =========================================================
    SUBJECT SCHEDULE + NOTES UI
@@ -3479,6 +3534,18 @@ function renderSubjectPlanner() {
 
     container.innerHTML = `
 
+        <div class="subject-planner-hero">
+            <div>
+                <p class="card-eyebrow">SUBJECT PLANNER</p>
+                <h2>${escapeHTML(subject.name)} <span class="subject-planner-color-dot" style="background:${escapeHTML(subject.color || "#7c5cff")}"></span></h2>
+                <p>Plan classes, study sessions and exams in one calm timeline. Your reminder settings apply automatically.</p>
+            </div>
+            <div class="subject-planner-next">
+                <span>Reminder</span>
+                <strong>${Math.max(1, Number(settings.deadlineReminderDays) || 3)} days · ${escapeHTML(settings.deadlineReminderTime || "18:00")}</strong>
+            </div>
+        </div>
+
         <div class="subject-planner-toolbar">
 
             <select id="plannerSubjectSelect">
@@ -3520,29 +3587,32 @@ function renderSubjectPlanner() {
 
         <div class="subject-planner-columns">
 
-            <div>
+            <div class="planner-column">
 
-                <h3>
-                    Schedule
-                </h3>
+                <div class="planner-column-heading">
+                    <div>
+                        <p class="card-eyebrow">UPCOMING</p>
+                        <h3>Schedule</h3>
+                    </div>
+                    <span class="planner-count">${subject.schedule.length}</span>
+                </div>
 
                 <div
                     id="subjectScheduleList">
 
-                    ${
-                        subject.schedule.length
-                            ? subject.schedule
-                                .sort(
-                                    (a, b) =>
-                                        a.date.localeCompare(
-                                            b.date
-                                        )
-                                )
-                                .map(
-                                    scheduleHTML
-                                )
-                                .join("")
-                            : `
+                    ${subject.schedule.length
+            ? subject.schedule
+                .sort(
+                    (a, b) =>
+                        a.date.localeCompare(
+                            b.date
+                        )
+                )
+                .map(
+                    scheduleHTML
+                )
+                .join("")
+            : `
                                 <div class="empty-state">
                                     <h3>
                                         No schedule yet
@@ -3554,30 +3624,33 @@ function renderSubjectPlanner() {
                                     </p>
                                 </div>
                             `
-                    }
+        }
 
                 </div>
 
             </div>
 
 
-            <div>
+            <div class="planner-column">
 
-                <h3>
-                    PDF Notes
-                </h3>
+                <div class="planner-column-heading">
+                    <div>
+                        <p class="card-eyebrow">REFERENCE</p>
+                        <h3>PDF Notes</h3>
+                    </div>
+                    <span class="planner-count">${subject.notes.length}</span>
+                </div>
 
                 <div
                     id="subjectNotesList">
 
-                    ${
-                        subject.notes.length
-                            ? subject.notes
-                                .map(
-                                    noteHTML
-                                )
-                                .join("")
-                            : `
+                    ${subject.notes.length
+            ? subject.notes
+                .map(
+                    noteHTML
+                )
+                .join("")
+            : `
                                 <div class="empty-state">
                                     <h3>
                                         No PDF notes
@@ -3588,7 +3661,7 @@ function renderSubjectPlanner() {
                                     </p>
                                 </div>
                             `
-                    }
+        }
 
                 </div>
 
@@ -3660,54 +3733,41 @@ function renderSubjectPlanner() {
 
 
 function scheduleHTML(schedule) {
+    const type = String(schedule.type || "other").toLowerCase();
+    const typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
+    const reminderDays = Math.max(1, Number(settings.deadlineReminderDays) || 3);
+    const startTime = schedule.startTime || schedule.time || "";
+    const endTime = schedule.endTime || "";
+    const timeLabel = startTime && endTime ? `${startTime} – ${endTime}` : startTime;
 
     return `
-
-        <div class="schedule-item">
-
-            <div>
-
-                <strong>
-                    ${escapeHTML(
-                        schedule.title
-                    )}
-                </strong>
-
-                <small>
-                    ${escapeHTML(
-                        formatDate(
-                            schedule.date
-                        )
-                    )}
-
-                    ${
-                        schedule.time
-                            ? ` · ${escapeHTML(schedule.time)}`
-                            : ""
-                    }
-
-                    ${
-                        schedule.type
-                            ? ` · ${escapeHTML(schedule.type)}`
-                            : ""
-                    }
-                </small>
-
+        <article class="schedule-card schedule-type-${escapeHTML(type)}">
+            <div class="schedule-date-badge">
+                <span>${escapeHTML(getDateFromString(schedule.date).toLocaleDateString(undefined, { month: "short" }))}</span>
+                <strong>${escapeHTML(getDateFromString(schedule.date).getDate())}</strong>
             </div>
-
-            <button
-                type="button"
-                class="task-delete"
-                data-schedule-delete="${escapeHTML(schedule.id)}">
-                ×
-            </button>
-
-        </div>
-
+            <div class="schedule-main">
+                <div class="schedule-title-row">
+                    <strong>${escapeHTML(schedule.title)}</strong>
+                    <span class="schedule-type-pill">${escapeHTML(typeLabel)}</span>
+                </div>
+                <div class="schedule-meta-row">
+                    <span>${escapeHTML(formatDate(schedule.date))}</span>
+                    ${timeLabel ? `<span>• ${escapeHTML(timeLabel)}</span>` : ""}
+                    <span class="schedule-reminder-pill">⏰ ${reminderDays}d</span>
+                </div>
+            </div>
+            <div class="schedule-actions">
+                <button type="button" class="schedule-edit-button" data-schedule-edit="${escapeHTML(schedule.id)}" aria-label="Edit ${escapeHTML(schedule.title)}" title="Edit schedule">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19.5 8.5a2.12 2.12 0 0 0-3-3L5 17v3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m14.5 7.5 2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                </button>
+                <button type="button" class="schedule-delete-button" data-schedule-delete="${escapeHTML(schedule.id)}" aria-label="Delete ${escapeHTML(schedule.title)}" title="Delete schedule">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v6m4-6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+            </div>
+        </article>
     `;
-
 }
-
 
 function noteHTML(note) {
 
@@ -3719,19 +3779,19 @@ function noteHTML(note) {
 
                 <strong>
                     ${escapeHTML(
-                        note.name
-                    )}
+        note.name
+    )}
                 </strong>
 
                 <small>
                     ${formatBytes(
-                        note.size
-                    )}
+        note.size
+    )}
 
                     ·
                     ${formatDate(
-                        note.createdAt.slice(0, 10)
-                    )}
+        note.createdAt.slice(0, 10)
+    )}
                 </small>
 
             </div>
@@ -3748,8 +3808,9 @@ function noteHTML(note) {
                 <button
                     type="button"
                     class="task-delete"
-                    data-pdf-delete="${escapeHTML(note.id)}">
-                    ×
+                    data-pdf-delete="${escapeHTML(note.id)}"
+                    aria-label="Delete PDF">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v6m4-6v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
 
             </div>
@@ -3761,319 +3822,134 @@ function noteHTML(note) {
 }
 
 
-function openScheduleForm(subjectId) {
+function openScheduleForm(subjectId, scheduleId = null) {
+    const existing = document.querySelector("#scheduleModal");
+    if (existing) existing.remove();
 
-    const existing =
-        document.querySelector(
-            "#scheduleModal"
-        );
+    const subject = subjects.find(item => item.id === subjectId);
+    if (!subject) return;
 
-    if (existing) {
-        existing.remove();
-    }
+    const existingSchedule = Array.isArray(subject.schedule)
+        ? subject.schedule.find(item => item.id === scheduleId)
+        : null;
+    const isEditing = Boolean(existingSchedule);
+    const startTime = existingSchedule?.startTime || existingSchedule?.time || "";
+    const endTime = existingSchedule?.endTime || "";
 
-
-    const modal =
-        document.createElement("div");
-
-    modal.id =
-        "scheduleModal";
-
-    modal.className =
-        "modal-overlay show";
-
-
+    const modal = document.createElement("div");
+    modal.id = "scheduleModal";
+    modal.className = "modal-overlay show";
     modal.innerHTML = `
-
-        <div class="modal">
-
+        <div class="modal schedule-modal">
             <div class="modal-header">
-
                 <div>
-                    <p class="card-eyebrow">
-                        SUBJECT PLANNER
-                    </p>
-
-                    <h2>
-                        Add Schedule
-                    </h2>
+                    <p class="card-eyebrow">SUBJECT PLANNER</p>
+                    <h2>${isEditing ? "Edit Schedule" : "Add Schedule"}</h2>
                 </div>
-
-                <button
-                    type="button"
-                    class="close-modal"
-                    id="closeScheduleModal">
-                    ×
+                <button type="button" class="close-modal" id="closeScheduleModal" aria-label="Close">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
                 </button>
-
             </div>
-
-
             <form id="scheduleForm">
-
                 <div class="form-group">
-
-                    <label>
-                        Title
-                    </label>
-
-                    <input
-                        id="scheduleTitle"
-                        type="text"
-                        required
-                        placeholder="Math class / Revision / Exam">
-
+                    <label for="scheduleTitle">Title</label>
+                    <input id="scheduleTitle" type="text" required maxlength="120" autocomplete="off" value="${escapeHTML(existingSchedule?.title || "")}" placeholder="Schedule title">
                 </div>
-
-
                 <div class="form-row">
-
                     <div class="form-group">
-
-                        <label>
-                            Date
-                        </label>
-
-                        <input
-                            id="scheduleDate"
-                            type="date"
-                            min="${todayString()}"
-                            required>
-
+                        <label for="scheduleDate">Date</label>
+                        <input id="scheduleDate" type="date" min="${todayString()}" required value="${escapeHTML(existingSchedule?.date || "")}">
                     </div>
-
-
                     <div class="form-group">
-
-                        <label>
-                            Time
-                        </label>
-
-                        <input
-                            id="scheduleTime"
-                            type="time">
-
+                        <label for="scheduleType">Type</label>
+                        <select id="scheduleType">
+                            <option value="class" ${existingSchedule?.type === "class" ? "selected" : ""}>Class</option>
+                            <option value="study" ${existingSchedule?.type === "study" ? "selected" : ""}>Study</option>
+                            <option value="exam" ${existingSchedule?.type === "exam" ? "selected" : ""}>Exam</option>
+                            <option value="assignment" ${existingSchedule?.type === "assignment" ? "selected" : ""}>Assignment</option>
+                            <option value="other" ${!existingSchedule?.type || existingSchedule?.type === "other" ? "selected" : ""}>Other</option>
+                        </select>
                     </div>
-
                 </div>
-
-
-                <div class="form-group">
-
-                    <label>
-                        Type
-                    </label>
-
-                    <select id="scheduleType">
-
-                        <option value="class">
-                            Class
-                        </option>
-
-                        <option value="study">
-                            Study
-                        </option>
-
-                        <option value="exam">
-                            Exam
-                        </option>
-
-                        <option value="assignment">
-                            Assignment
-                        </option>
-
-                        <option value="other">
-                            Other
-                        </option>
-
-                    </select>
-
+                <div class="form-row schedule-time-row">
+                    <div class="form-group">
+                        <label for="scheduleStartTime">Start</label>
+                        <input id="scheduleStartTime" type="time" value="${escapeHTML(startTime)}">
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleEndTime">End</label>
+                        <input id="scheduleEndTime" type="time" value="${escapeHTML(endTime)}">
+                    </div>
                 </div>
-
-
-                <button
-                    type="submit"
-                    class="submit-task">
-                    Add Schedule
-                </button>
-
+                <button type="submit" class="submit-task">${isEditing ? "Save Changes" : "Add Schedule"}</button>
             </form>
-
         </div>
-
     `;
 
+    document.body.appendChild(modal);
+    const close = () => modal.remove();
+    document.querySelector("#closeScheduleModal")?.addEventListener("click", close);
+    modal.addEventListener("click", event => { if (event.target === modal) close(); });
 
-    document.body.appendChild(
-        modal
-    );
+    document.querySelector("#scheduleForm")?.addEventListener("submit", event => {
+        event.preventDefault();
+        const title = document.querySelector("#scheduleTitle")?.value.trim() || "";
+        const date = document.querySelector("#scheduleDate")?.value || "";
+        const startTime = document.querySelector("#scheduleStartTime")?.value || "";
+        const endTime = document.querySelector("#scheduleEndTime")?.value || "";
+        const type = document.querySelector("#scheduleType")?.value || "other";
 
-
-    const close =
-        () => modal.remove();
-
-
-    document
-        .querySelector(
-            "#closeScheduleModal"
-        )
-        ?.addEventListener(
-            "click",
-            close
-        );
-
-
-    modal.addEventListener(
-        "click",
-        event => {
-
-            if (
-                event.target === modal
-            ) {
-                close();
-            }
-
+        if (!title || !date) {
+            showToast("Enter a title and date.", "error");
+            return;
         }
-    );
+        if (date < todayString()) {
+            showToast("Schedule dates cannot be before today.", "error");
+            return;
+        }
+        if (startTime && endTime && endTime <= startTime) {
+            showToast("End time must be after start time.", "error");
+            return;
+        }
 
+        const now = new Date().toISOString();
+        const payload = {
+            id: existingSchedule?.id || createId(),
+            title,
+            date,
+            startTime,
+            endTime,
+            type,
+            createdAt: existingSchedule?.createdAt || now,
+            updatedAt: now
+        };
 
-    document
-        .querySelector(
-            "#scheduleForm"
-        )
-        ?.addEventListener(
-            "submit",
-            event => {
+        if (!Array.isArray(subject.schedule)) subject.schedule = [];
+        if (isEditing) {
+            const index = subject.schedule.findIndex(item => item.id === scheduleId);
+            if (index !== -1) subject.schedule[index] = payload;
+        } else {
+            subject.schedule.push(payload);
+        }
 
-                event.preventDefault();
-
-
-                const title =
-                    document
-                        .querySelector(
-                            "#scheduleTitle"
-                        )
-                        ?.value
-                        .trim();
-
-
-                const date =
-                    document
-                        .querySelector(
-                            "#scheduleDate"
-                        )
-                        ?.value;
-
-
-                const time =
-                    document
-                        .querySelector(
-                            "#scheduleTime"
-                        )
-                        ?.value;
-
-
-                const type =
-                    document
-                        .querySelector(
-                            "#scheduleType"
-                        )
-                        ?.value;
-
-
-                if (
-                    !title ||
-                    !date
-                ) {
-
-                    showToast(
-                        "Enter a title and date.",
-                        "error"
-                    );
-
-                    return;
-
-                }
-
-
-                if (
-                    date <
-                    todayString()
-                ) {
-
-                    showToast(
-                        "Schedule dates cannot be before today.",
-                        "error"
-                    );
-
-                    return;
-
-                }
-
-
-                const subject =
-                    subjects.find(
-                        item =>
-                            item.id ===
-                            subjectId
-                    );
-
-
-                if (!subject) {
-                    return;
-                }
-
-
-                if (
-                    !Array.isArray(
-                        subject.schedule
-                    )
-                ) {
-
-                    subject.schedule =
-                        [];
-
-                }
-
-
-                subject.schedule.push({
-
-                    id: createId(),
-
-                    title,
-
-                    date,
-
-                    time,
-
-                    type,
-
-                    createdAt:
-                        new Date().toISOString()
-
-                });
-
-
-                saveData();
-
-                close();
-
-                renderSubjects();
-
-                showToast(
-                    "Schedule added.",
-                    "success"
-                );
-
-            }
-        );
-
+        saveData();
+        close();
+        renderSubjects();
+        renderSubjectPlanner();
+    });
 }
-
 
 document.addEventListener(
     "click",
     async event => {
+
+        const editButton = event.target.closest("[data-schedule-edit]");
+        if (editButton) {
+            const container = document.querySelector("#subjectPlannerContent");
+            const subjectId = container?.dataset.selectedSubject;
+            if (subjectId) openScheduleForm(subjectId, editButton.dataset.scheduleEdit);
+            return;
+        }
 
         const button =
             event.target.closest(
@@ -4366,6 +4242,32 @@ async function deletePdfFile(id) {
 
 }
 
+
+async function deletePdfsForSubjects(subjectIds) {
+    if (!Array.isArray(subjectIds) || !subjectIds.length) return;
+
+    try {
+        const db = await openPdfDatabase();
+        await new Promise((resolve, reject) => {
+            const transaction = db.transaction(PDF_STORE_NAME, "readwrite");
+            const store = transaction.objectStore(PDF_STORE_NAME);
+            const request = store.getAll();
+
+            request.onsuccess = () => {
+                const records = Array.isArray(request.result) ? request.result : [];
+                records.forEach(record => {
+                    if (subjectIds.includes(record.subjectId)) store.delete(record.id);
+                });
+            };
+            request.onerror = () => reject(request.error);
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+        });
+        db.close();
+    } catch (error) {
+        console.warn("Could not remove account PDF files:", error);
+    }
+}
 
 async function handlePdfUpload(
     subjectId,
@@ -4780,8 +4682,8 @@ function renderSubjects() {
 
                         <h3>
                             ${escapeHTML(
-                                subject.name
-                            )}
+                    subject.name
+                )}
                         </h3>
 
                         <p>
@@ -5044,16 +4946,6 @@ function finishFocus() {
         completedAt: new Date().toISOString()
     });
 
-    if (settings.studyNotifications) {
-        notifications.push({
-            id: createId(),
-            title: "Focus session completed",
-            message: `Great work. Your ${minutes}-minute study session was recorded.`,
-            createdAt: new Date().toISOString(),
-            read: false
-        });
-    }
-
     saveData();
 
     focusRemaining = focusDurationSeconds;
@@ -5190,6 +5082,16 @@ function getLastSevenDays() {
 }
 
 
+function niceChartMax(value) {
+    const numeric = Math.max(0, Number(value) || 0);
+    if (numeric <= 0) return 10;
+    if (numeric <= 10) return Math.ceil(numeric);
+    const magnitude = 10 ** Math.floor(Math.log10(numeric));
+    const normalized = numeric / magnitude;
+    const step = normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+    return step * magnitude;
+}
+
 function renderAnalytics() {
     updateStats();
 
@@ -5197,63 +5099,122 @@ function renderAnalytics() {
     if (!container) return;
 
     const days = getLastSevenDays();
-
-    const taskValues = days.map(day =>
-        tasks.filter(task =>
-            task.completed &&
-            (task.completedAt || task.createdAt)?.startsWith(day.date)
-        ).length
+    const taskValues = days.map(day => tasks.filter(task =>
+        task.completed && (task.completedAt || task.createdAt)?.startsWith(day.date)
+    ).length);
+    const focusValues = days.map(day => focusSessions
+        .filter(session => session.date === day.date)
+        .reduce((sum, session) => sum + (Number(session.minutes) || 0), 0)
     );
 
-    const focusValues = days.map(day =>
-        focusSessions
-            .filter(session => session.date === day.date)
-            .reduce((sum, session) => sum + (Number(session.minutes) || 0), 0)
-    );
+    const taskMax = niceChartMax(Math.max(...taskValues, 0));
+    const focusMax = niceChartMax(Math.max(...focusValues, 0));
+    const W = 960, H = 330;
+    const left = 54, right = 62, top = 28, bottom = 58;
+    const plotW = W - left - right;
+    const plotH = H - top - bottom;
+    const baseY = top + plotH;
+    const groupW = plotW / days.length;
+    const barW = Math.min(48, groupW * 0.42);
 
-    const maxTasks = Math.max(...taskValues, 1);
+    const y = (value, max) => baseY - (Math.max(0, Number(value) || 0) / max) * plotH;
+    const taskTicks = [0, taskMax / 2, taskMax];
+    const focusTicks = [0, focusMax / 2, focusMax];
 
-    container.innerHTML = days.map((day, index) => `
-        <div class="analytics-bar-wrapper" title="${taskValues[index]} task${taskValues[index] === 1 ? "" : "s"} completed • ${focusValues[index]} focus minutes">
-            <div class="analytics-bar-value">${taskValues[index]}</div>
-            <div
-                class="analytics-bar"
-                style="height:${Math.max((taskValues[index] / maxTasks) * 78, taskValues[index] ? 8 : 3)}%"
-            ></div>
-            <span>${escapeHTML(day.label)}</span>
-        </div>
-    `).join("");
+    const linePoints = focusValues.map((value, index) => {
+        const x = left + groupW * index + groupW / 2;
+        return `${x.toFixed(1)},${y(value, focusMax).toFixed(1)}`;
+    }).join(" ");
+
+    const grid = taskTicks.map(tick => {
+        const yy = y(tick, taskMax);
+        const label = Number.isInteger(tick) ? tick : tick.toFixed(1);
+        return `<line class="analytics-grid-line" x1="${left}" y1="${yy}" x2="${W-right}" y2="${yy}"/><text class="analytics-axis-label" x="${left-12}" y="${yy+4}" text-anchor="end">${label}</text>`;
+    }).join("");
+
+    const rightLabels = focusTicks.map(tick => {
+        const yy = y(tick, focusMax);
+        const label = Number.isInteger(tick) ? tick : tick.toFixed(1);
+        return `<text class="analytics-axis-label" x="${W-right+12}" y="${yy+4}" text-anchor="start">${label}m</text>`;
+    }).join("");
+
+    const bars = taskValues.map((value, index) => {
+        const x = left + groupW * index + (groupW - barW) / 2;
+        const finalY = y(value, taskMax);
+        const finalHeight = Math.max(0, baseY - finalY);
+        return `<rect class="analytics-chart-bar" x="${x.toFixed(1)}" y="${finalY.toFixed(1)}" width="${barW.toFixed(1)}" height="${finalHeight.toFixed(1)}" rx="8"><title>${value} task${value === 1 ? "" : "s"}</title></rect>`;
+    }).join("");
+
+    const labels = days.map((day, index) => {
+        const x = left + groupW * index + groupW / 2;
+        return `<text class="analytics-day-label" x="${x.toFixed(1)}" y="${H-22}" text-anchor="middle">${escapeHTML(day.label)}</text>`;
+    }).join("");
+
+    const points = focusValues.map((value, index) => {
+        const x = left + groupW * index + groupW / 2;
+        const yy = y(value, focusMax);
+        return `<circle class="analytics-chart-point" cx="${x.toFixed(1)}" cy="${yy.toFixed(1)}" r="5"><title>${value} focus minutes</title></circle>`;
+    }).join("");
+
+    container.innerHTML = `
+        <svg class="analytics-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Last 7 days tasks and focus activity">
+            <g class="analytics-grid">${grid}</g>
+            <line class="analytics-axis" x1="${left}" y1="${top}" x2="${left}" y2="${baseY}"/>
+            <line class="analytics-axis" x1="${W-right}" y1="${top}" x2="${W-right}" y2="${baseY}"/>
+            <line class="analytics-axis" x1="${left}" y1="${baseY}" x2="${W-right}" y2="${baseY}"/>
+            <g class="analytics-right-labels">${rightLabels}</g>
+            <g class="analytics-bars-layer">${bars}</g>
+            <polyline class="analytics-focus-line" points="${linePoints}" fill="none"/>
+            <g class="analytics-points-layer">${points}</g>
+            <g class="analytics-labels">${labels}</g>
+        </svg>
+    `;
+
+    // Always replay the chart animation whenever Analytics is rendered.
+    // The chart is now placed high in the Analytics layout, so no scrolling is required.
+    const svg = container.querySelector(".analytics-svg");
+    const barsLayer = container.querySelectorAll(".analytics-chart-bar");
+    const line = container.querySelector(".analytics-focus-line");
+    const pointNodes = container.querySelectorAll(".analytics-chart-point");
+
+    if (svg) {
+        svg.classList.remove("analytics-chart-ready");
+        void svg.offsetWidth;
+        requestAnimationFrame(() => {
+            svg.classList.add("analytics-chart-ready");
+            barsLayer.forEach((bar, index) => {
+                bar.style.setProperty("--analytics-delay", `${index * 70}ms`);
+            });
+            pointNodes.forEach((point, index) => {
+                point.style.setProperty("--analytics-delay", `${180 + index * 75}ms`);
+            });
+            line?.style.setProperty("--analytics-line-length", "1200");
+        });
+    }
 
     const weekFocus = focusValues.reduce((sum, value) => sum + value, 0);
     const weekTasks = taskValues.reduce((sum, value) => sum + value, 0);
-
     const weekFocusElement = document.querySelector("#analyticsWeekFocus");
     if (weekFocusElement) weekFocusElement.textContent = `${weekFocus}m`;
 
     const focusProgress = document.querySelector("#analyticsFocusProgress");
-    if (focusProgress) {
-        const target = 300;
-        focusProgress.style.width = `${Math.min((weekFocus / target) * 100, 100)}%`;
-    }
+    if (focusProgress) focusProgress.style.width = `${Math.min((weekFocus / 300) * 100, 100)}%`;
 
     const focusProgressText = document.querySelector("#analyticsFocusProgressText");
     if (focusProgressText) {
-        focusProgressText.textContent =
-            weekFocus >= 300
-                ? "Weekly focus goal reached"
-                : `${weekFocus} minutes logged • ${300 - weekFocus} minutes to a 5-hour weekly goal`;
+        focusProgressText.textContent = weekFocus >= 300
+            ? "Weekly focus goal reached"
+            : `${weekFocus} minutes logged • ${300 - weekFocus} minutes to a 5-hour weekly goal`;
     }
 
     const insight = document.querySelector("#analyticsInsight");
     const insightDetail = document.querySelector("#analyticsInsightDetail");
-
     if (insight && insightDetail) {
         const bestIndex = taskValues.indexOf(Math.max(...taskValues));
-        const bestDay = days[bestIndex];
-
+        const bestDay = days[bestIndex] || days[days.length - 1];
         if (weekTasks === 0 && weekFocus === 0) {
             insight.textContent = "Build your first streak";
-            insightDetail.textContent = "Complete a task or finish a focus session to start seeing your productivity trend.";
+            insightDetail.textContent = "Complete a task or focus for a few minutes to start seeing your productivity trend.";
         } else if (weekTasks > 0 && weekFocus > 0) {
             insight.textContent = `${weekTasks} tasks + ${weekFocus} focus minutes`;
             insightDetail.textContent = `Your busiest day was ${bestDay.label}. Keep combining task progress with focused study time.`;
@@ -5266,7 +5227,6 @@ function renderAnalytics() {
         }
     }
 }
-
 
 function renderWeeklyBars() {
 
@@ -5318,18 +5278,18 @@ function renderWeeklyBars() {
                     <div
                         class="analytics-bar"
                         style="height:${Math.max(
-                            (
-                                values[index] /
-                                max
-                            ) * 80,
-                            3
-                        )}%">
+                (
+                    values[index] /
+                    max
+                ) * 80,
+                3
+            )}%">
                     </div>
 
                     <span>
                         ${escapeHTML(
-                            day.label
-                        )}
+                day.label
+            )}
                     </span>
 
                 </div>
@@ -5403,6 +5363,12 @@ document
 
 function loadSettingsUI() {
 
+    const user = getAuthUser();
+    const accountUsername = document.querySelector("#settingsAccountUsername");
+    const accountAvatar = document.querySelector("#settingsAccountAvatar");
+    if (accountUsername) accountUsername.textContent = user?.username || "Account";
+    if (accountAvatar) accountAvatar.textContent = (user?.username || "A").trim().charAt(0).toUpperCase() || "A";
+
     const font =
         document.querySelector(
             "#fontSelector"
@@ -5414,43 +5380,32 @@ function loadSettingsUI() {
     }
 
 
-    const taskNotifications =
-        document.querySelector(
-            "#taskNotifications"
-        );
-
-    if (taskNotifications) {
-
-        taskNotifications.checked =
-            settings.taskNotifications;
-
-    }
-
-
-    const deadlineNotifications =
-        document.querySelector(
-            "#deadlineNotifications"
-        );
-
+    const deadlineNotifications = document.querySelector("#deadlineNotifications");
     if (deadlineNotifications) {
-
-        deadlineNotifications.checked =
-            settings.deadlineNotifications;
-
+        deadlineNotifications.checked = settings.deadlineNotifications !== false;
     }
 
-
-    const studyNotifications =
-        document.querySelector(
-            "#studyNotifications"
-        );
-
-    if (studyNotifications) {
-
-        studyNotifications.checked =
-            settings.studyNotifications;
-
+    const reminderDays = document.querySelector("#deadlineReminderDays");
+    if (reminderDays) {
+        reminderDays.value = String(Math.max(1, Number(settings.deadlineReminderDays) || 3));
     }
+
+    const reminderTime = document.querySelector("#deadlineReminderTime");
+    if (reminderTime) {
+        reminderTime.value = /^([01]\d|2[0-3]):[0-5]\d$/.test(settings.deadlineReminderTime || "")
+            ? settings.deadlineReminderTime
+            : "18:00";
+    }
+
+    const dailyReminders = document.querySelector("#dailyDeadlineReminders");
+    if (dailyReminders) {
+        dailyReminders.checked = settings.dailyDeadlineReminders === true;
+    }
+    const dailyReminderDays = document.querySelector("#dailyDeadlineReminderDays");
+    if (dailyReminderDays) {
+        dailyReminderDays.value = String(Math.max(1, Number(settings.dailyDeadlineReminderDays) || 3));
+    }
+    updateDailyReminderDaysVisibility();
 
 
     applyCustomization();
@@ -5647,29 +5602,88 @@ document
 
 
 
-[
-    "taskNotifications",
-    "deadlineNotifications",
-    "studyNotifications"
-].forEach(id => {
+function normalizeReminderDaysValue(input, fallback = 3) {
+    const parsed = Number.parseInt(input?.value, 10);
+    const value = Number.isFinite(parsed) && parsed >= 1 ? parsed : fallback;
+    if (input) input.value = String(value);
+    return value;
+}
 
-    document
-        .querySelector(
-            `#${id}`
-        )
-        ?.addEventListener(
-            "change",
-            event => {
+function updateDailyReminderDaysVisibility() {
+    const field = document.querySelector("#dailyReminderDaysField");
+    const checkbox = document.querySelector("#dailyDeadlineReminders");
+    if (!field || !checkbox) return;
+    field.classList.toggle("hidden", !checkbox.checked);
+}
 
-                settings[id] =
-                    event.target.checked;
-
-                saveData();
-
-            }
-        );
-
+document.querySelector("#deadlineNotifications")?.addEventListener("change", async event => {
+    settings.deadlineNotifications = event.target.checked;
+    saveData();
+    if (event.target.checked) {
+        await requestDesktopNotificationPermission();
+        checkScheduledReminders();
+    }
 });
+
+document.querySelector("#deadlineReminderDays")?.addEventListener("change", event => {
+    settings.deadlineReminderDays = normalizeReminderDaysValue(event.target, 3);
+    saveData();
+    checkScheduledReminders();
+});
+
+document.querySelector("#deadlineReminderDays")?.addEventListener("blur", event => {
+    settings.deadlineReminderDays = normalizeReminderDaysValue(event.target, 3);
+    saveData();
+});
+
+document.querySelector("#deadlineReminderTime")?.addEventListener("change", event => {
+    settings.deadlineReminderTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(event.target.value)
+        ? event.target.value
+        : "18:00";
+    saveData();
+    checkScheduledReminders();
+});
+
+document.querySelector("#dailyDeadlineReminders")?.addEventListener("change", event => {
+    settings.dailyDeadlineReminders = event.target.checked;
+    updateDailyReminderDaysVisibility();
+    saveData();
+    checkScheduledReminders();
+});
+
+document.querySelector("#dailyDeadlineReminderDays")?.addEventListener("change", event => {
+    settings.dailyDeadlineReminderDays = normalizeReminderDaysValue(event.target, 3);
+    saveData();
+    checkScheduledReminders();
+});
+
+document.querySelector("#dailyDeadlineReminderDays")?.addEventListener("blur", event => {
+    settings.dailyDeadlineReminderDays = normalizeReminderDaysValue(event.target, 3);
+    saveData();
+});
+
+document.addEventListener("click", event => {
+    const button = event.target.closest("[data-stepper-target]");
+    if (!button) return;
+    const input = document.getElementById(button.dataset.stepperTarget);
+    if (!input) return;
+    const current = Math.max(1, Number.parseInt(input.value, 10) || 1);
+    const direction = button.dataset.stepperDirection === "up" ? 1 : -1;
+    const next = direction > 0 ? (current < 7 ? current + 1 : current) : Math.max(1, current - 1);
+    input.value = String(next);
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+});
+
+document.addEventListener("wheel", event => {
+    const input = event.target.closest("#deadlineReminderDays, #dailyDeadlineReminderDays");
+    if (!input || event.deltaY === 0) return;
+    event.preventDefault();
+    const current = Math.max(1, Number.parseInt(input.value, 10) || 1);
+    const direction = event.deltaY < 0 ? 1 : -1;
+    const next = direction > 0 ? (current < 7 ? current + 1 : current) : Math.max(1, current - 1);
+    input.value = String(next);
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+}, { passive: false });
 
 
 document
@@ -5709,100 +5723,131 @@ document
 
 
 /* =========================================================
+   ACCOUNT DATA / ACCOUNT DELETION
+========================================================= */
+
+async function deleteCurrentUserData() {
+    const token = getAuthToken();
+    const user = getAuthUser();
+    if (!token || !user?.id) {
+        showLoginScreen();
+        return;
+    }
+
+    const confirmed = await confirmAction(
+        "This permanently deletes this account's AceArch tasks, subjects, settings, notifications, calendar items and focus sessions. Your account will remain active.",
+        { force: true, title: "Delete My Data?", confirmText: "Delete My Data" }
+    );
+    if (!confirmed) return;
+
+    const subjectIds = subjects.map(subject => subject.id);
+    dataSessionGeneration += 1;
+    databaseSaveQueue = Promise.resolve();
+
+    try {
+        const response = await fetch("/api/account/data", {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            if (response.status === 401) {
+                clearAuthData();
+                showLoginScreen();
+                return;
+            }
+            throw new Error(result.error || "Could not delete your data.");
+        }
+
+        await deletePdfsForSubjects(subjectIds);
+        tasks = [];
+        subjects = [];
+        calendarItems = [];
+        focusSessions = [];
+        notifications = [];
+        settings = { ...defaultSettings };
+        databaseReady = true;
+        databaseUserId = user.id;
+        clearUserLocalBackup(user.id);
+        saveLocalBackup();
+        applyCustomization();
+        renderAll();
+        renderFocusPage();
+        navigate("dashboard");
+        showAppForSession();
+        showToast(result.message || "Your AceArch data was deleted. Your account is still active.", "success");
+
+    } catch (error) {
+        console.error("Delete My Data failed:", error);
+        showToast(error.message || "Could not delete your data.", "error");
+    }
+}
+
+async function deleteCurrentUserAccount() {
+    const token = getAuthToken();
+    const user = getAuthUser();
+    if (!token || !user?.id) {
+        showLoginScreen();
+        return;
+    }
+
+    const confirmed = await confirmAction(
+        "This permanently deletes your AceArch account and all of its data. This action cannot be undone.",
+        { force: true, title: "Delete My Account?", confirmText: "Delete Account" }
+    );
+    if (!confirmed) return;
+
+    const subjectIds = subjects.map(subject => subject.id);
+    dataSessionGeneration += 1;
+    databaseSaveQueue = Promise.resolve();
+
+    try {
+        const response = await fetch("/api/account", {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            if (response.status === 401) {
+                clearAuthData();
+                showLoginScreen();
+                return;
+            }
+            throw new Error(result.error || "Could not delete your account.");
+        }
+
+        await deletePdfsForSubjects(subjectIds);
+        clearUserLocalBackup(user.id);
+        clearAuthData();
+        resetUserDataInMemory();
+        showLoginScreen();
+        authMode = "login";
+        updateAuthMode();
+        showToast(result.message || "Your account was deleted.", "success");
+
+    } catch (error) {
+        console.error("Delete My Account failed:", error);
+        showToast(error.message || "Could not delete your account.", "error");
+    }
+}
+
+document.querySelector("#deleteMyData")?.addEventListener("click", deleteCurrentUserData);
+document.querySelector("#deleteMyAccount")?.addEventListener("click", deleteCurrentUserAccount);
+
+/* =========================================================
    DATA CLEAR
 ========================================================= */
 
-document
-    .querySelector(
-        "#clearLocalData"
-    )
-    ?.addEventListener(
-        "click",
-        async () => {
+document.querySelector("#clearLocalData")?.addEventListener("click", async () => {
+    const userId = getAuthUser()?.id;
+    const confirmed = await confirmAction("This will clear this account's local browser backup. Your SQLite data will remain intact. Continue?");
+    if (!confirmed) return;
 
-            const confirmed = await confirmAction(
-                "This will remove all AceArch data stored in this browser. Continue?"
-            );
-
-
-            if (!confirmed) {
-                return;
-            }
-
-
-            localStorage.removeItem(
-                STORAGE_KEYS.tasks
-            );
-
-            localStorage.removeItem(
-                STORAGE_KEYS.calendar
-            );
-
-            localStorage.removeItem(
-                STORAGE_KEYS.subjects
-            );
-
-            localStorage.removeItem(
-                STORAGE_KEYS.focus
-            );
-
-            localStorage.removeItem(
-                STORAGE_KEYS.notifications
-            );
-
-            localStorage.removeItem(
-                STORAGE_KEYS.settings
-            );
-
-
-            /*
-                Also clear saved PDFs.
-            */
-
-            try {
-
-                const db =
-                    await openPdfDatabase();
-
-                const transaction =
-                    db.transaction(
-                        PDF_STORE_NAME,
-                        "readwrite"
-                    );
-
-                transaction
-                    .objectStore(
-                        PDF_STORE_NAME
-                    )
-                    .clear();
-
-                transaction.oncomplete =
-                    () => {
-
-                        db.close();
-
-                        location.reload();
-
-                    };
-
-                transaction.onerror =
-                    () => {
-
-                        db.close();
-
-                        location.reload();
-
-                    };
-
-            } catch {
-
-                location.reload();
-
-            }
-
-        }
-    );
-
+    if (userId) clearUserLocalBackup(userId);
+    showToast("Local backup cleared.", "success");
+});
 
 /* =========================================================
    NOTIFICATIONS
@@ -5846,14 +5891,14 @@ function updateNotifications() {
 
                         <strong>
                             ${escapeHTML(
-                                notification.title
-                            )}
+                        notification.title
+                    )}
                         </strong>
 
                         <small>
                             ${escapeHTML(
-                                notification.message
-                            )}
+                        notification.message
+                    )}
                         </small>
 
                     </div>
@@ -5949,182 +5994,155 @@ document
 
 
 /* =========================================================
-   DEADLINE NOTIFICATIONS
+   SMART DEADLINE / SCHEDULE NOTIFICATIONS
 ========================================================= */
 
-function checkDeadlineNotifications() {
+function getReminderTimeParts() {
+    const value = /^([01]\d|2[0-3]):([0-5]\d)$/.test(settings.deadlineReminderTime || "")
+        ? settings.deadlineReminderTime
+        : "18:00";
+    const [hours, minutes] = value.split(":").map(Number);
+    return { hours, minutes };
+}
 
-    if (
-        !settings.deadlineNotifications
-    ) {
-        return;
+function dateDaysBetween(start, end) {
+    const a = getDateFromString(start);
+    const b = getDateFromString(end);
+    return Math.round((b - a) / 86400000);
+}
+
+function subtractDays(dateString, amount) {
+    const date = getDateFromString(dateString);
+    date.setDate(date.getDate() - amount);
+    return dateToString(date);
+}
+
+async function requestDesktopNotificationPermission() {
+    if (!("Notification" in window)) return false;
+    if (Notification.permission === "granted") return true;
+    if (Notification.permission === "denied") return false;
+    try {
+        return (await Notification.requestPermission()) === "granted";
+    } catch (error) {
+        console.warn("Desktop notification permission request failed:", error);
+        return false;
     }
+}
 
-
-    const today =
-        todayString();
-
-
-    const tomorrow =
-        new Date();
-
-
-    tomorrow.setDate(
-        tomorrow.getDate() + 1
-    );
-
-
-    const tomorrowString =
-        dateToString(
-            tomorrow
-        );
-
-
-    const notificationDate =
-        today;
-
-
-    tasks
-        .filter(
-            task =>
-                !task.completed &&
-                (
-                    task.deadline ===
-                    today ||
-                    task.deadline ===
-                    tomorrowString
-                )
-        )
-        .forEach(task => {
-
-            const key =
-                `${task.id}_${notificationDate}`;
-
-
-            const exists =
-                notifications.some(
-                    notification =>
-                        notification.key ===
-                        key
-                );
-
-
-            if (exists) {
-                return;
-            }
-
-
-            notifications.push({
-
-                id: createId(),
-
-                key,
-
-                title:
-                    task.deadline === today
-                        ? "Task due today"
-                        : "Task due tomorrow",
-
-                message:
-                    `${task.title} is due ${formatDate(task.deadline)}.`,
-
-                createdAt:
-                    new Date().toISOString(),
-
-                read: false
-
-            });
-
+function sendDesktopReminder(title, message) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    try {
+        new Notification(title, {
+            body: message,
+            silent: false
         });
+    } catch (error) {
+        console.warn("Desktop reminder could not be shown:", error);
+    }
+}
 
+function addReminderNotification(key, title, message) {
+    if (notifications.some(notification => notification.key === key)) return false;
 
+    notifications.push({
+        id: createId(),
+        key,
+        title,
+        message,
+        createdAt: new Date().toISOString(),
+        read: false
+    });
+
+    sendDesktopReminder(title, message);
     saveData();
-
     updateNotifications();
-
+    return true;
 }
 
+function getReminderStartDate(eventDate, createdAt) {
+    const reminderDays = Math.max(1, Number(settings.deadlineReminderDays) || 3);
+    const plannedStart = subtractDays(eventDate, reminderDays);
+    const createdDate = createdAt ? String(createdAt).slice(0, 10) : plannedStart;
+    return createdDate > plannedStart ? createdDate : plannedStart;
+}
 
-/* =========================================================
-   GLOBAL ESCAPE
-========================================================= */
+function shouldRemindToday(eventDate, createdAt, itemId) {
+    if (!eventDate || eventDate < todayString()) return false;
 
-document.addEventListener(
-    "keydown",
-    event => {
+    const today = todayString();
+    const startDate = getReminderStartDate(eventDate, createdAt);
+    if (today < startDate || today > eventDate) return false;
 
-        if (
-            event.key !==
-            "Escape"
-        ) {
-            return;
-        }
+    const { hours, minutes } = getReminderTimeParts();
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const reminderMinutes = hours * 60 + minutes;
+    if (currentMinutes < reminderMinutes) return false;
 
-
-        document
-            .querySelectorAll(
-                ".modal-overlay.show"
-            )
-            .forEach(
-                modal =>
-                    modal.classList.remove(
-                        "show"
-                    )
-            );
-
-
-        notificationPanel
-            ?.classList.remove(
-                "show"
-            );
-
-
-        closeSidebar();
-
+    if (settings.dailyDeadlineReminders) {
+        const dailyDays = Math.max(1, Number(settings.dailyDeadlineReminderDays) || 3);
+        const dailyEnd = getDateFromString(startDate);
+        dailyEnd.setDate(dailyEnd.getDate() + dailyDays - 1);
+        if (today > dateToString(dailyEnd)) return false;
+    } else if (today !== startDate) {
+        return false;
     }
-);
 
-
-/* =========================================================
-   PREVENT INVALID DATES
-========================================================= */
-
-function setMinimumDates() {
-
-    const today =
-        todayString();
-
-
-    document
-        .querySelectorAll(
-            'input[type="date"]'
-        )
-        .forEach(input => {
-
-            /*
-                Only enforce this on creation/planning
-                fields. Calendar browsing is handled
-                separately.
-            */
-
-            if (
-                input.id === "taskDate" ||
-                input.id === "calendarItemDate" ||
-                input.id === "scheduleDate"
-            ) {
-
-                input.min =
-                    today;
-
-            }
-
-        });
-
+    return `${itemId}_${today}`;
 }
 
 
-setMinimumDates();
+function checkScheduledReminders() {
+    if (!getAuthToken() || !getAuthUser()?.id || settings.deadlineNotifications === false) return;
 
+    let changed = false;
+
+    // Tasks: reminders are based on the task deadline.
+    tasks.forEach(task => {
+        if (task.completed || !task.deadline) return;
+
+        const keyDate = shouldRemindToday(task.deadline, task.createdAt, task.id);
+        if (!keyDate) return;
+
+        const title = task.deadline === todayString()
+            ? "Task due today"
+            : `Task reminder: ${task.title}`;
+        const message = `${task.title} is due ${formatDate(task.deadline)}${task.subject ? ` · ${task.subject}` : ""}.`;
+
+        if (addReminderNotification(`task-reminder-${task.id}-${keyDate}`, title, message)) {
+            changed = true;
+        }
+    });
+
+    // Subject schedules use the exact same reminder rules as tasks.
+    subjects.forEach(subject => {
+        (Array.isArray(subject.schedule) ? subject.schedule : []).forEach(schedule => {
+            if (!schedule?.date) return;
+
+            const keyDate = shouldRemindToday(schedule.date, schedule.createdAt, schedule.id);
+            if (!keyDate) return;
+
+            const when = schedule.time ? ` at ${schedule.time}` : "";
+            const title = schedule.date === todayString()
+                ? `${subject.name}: schedule today`
+                : `${subject.name}: upcoming schedule`;
+            const message = `${schedule.title} is scheduled for ${formatDate(schedule.date)}${when}.`;
+
+            if (addReminderNotification(`schedule-reminder-${subject.id}-${schedule.id}-${keyDate}`, title, message)) {
+                changed = true;
+            }
+        });
+    });
+
+    if (changed) {
+        renderAll();
+    }
+}
+
+// Keep the old function name available for compatibility with any existing code.
+function checkDeadlineNotifications() {
+    checkScheduledReminders();
+}
 
 /* =========================================================
    SYSTEM THEME CHANGE
@@ -6206,19 +6224,17 @@ window.renderAll =
 
 async function initializeAceArch() {
 
-    /*
-     * Wait for SQLite before rendering the app. This makes the
-     * database the source of truth when AceArch starts.
-     */
+    // Wait for authentication and its account-specific database load.
+    await authInitializationPromise;
     await databaseLoadPromise;
 
-    applyCustomization();
+    if (getAuthToken() && getAuthUser()) {
+        applyCustomization();
+        renderAll();
+        renderFocusPage();
+    }
 
-    renderAll();
-
-    renderFocusPage();
-
-    checkDeadlineNotifications();
+    checkScheduledReminders();
 
     setMinimumDates();
 
@@ -6235,10 +6251,10 @@ async function initializeAceArch() {
 
             setMinimumDates();
 
-            checkDeadlineNotifications();
+            checkScheduledReminders();
 
         },
-        60000
+        30000
     );
 
 

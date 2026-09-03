@@ -5,18 +5,41 @@
   "main": "electron.js",
   "scripts": {
     "start": "node server/server.js",
-    "app": "electron.cmd electron.js"
+    "app": "electron.cmd electron.js",
+    "dist": "electron-builder"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.3",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3"
   },
   "devDependencies": {
     "electron": "^44.0.0",
     "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.acearch.app",
+    "productName": "AceArch",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron.js",
+      "server/**/*",
+      "public/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/assets/acearch-icon.ico"
+    }
   }
 }

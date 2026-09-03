@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,6 +15,8 @@
     >
 
     <title>AceArch</title>
+    <link rel="icon" href="assets/acearch-icon.svg" type="image/svg+xml">
+    <meta name="theme-color" content="#0b0b10">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
@@ -26,7 +29,65 @@
 
 <body>
 
-<div class="app">
+
+<!-- =====================================================
+     FRONTEND ACCOUNT GATE
+     Prototype only: authentication is currently local.
+     Real cloud authentication will be added with the backend.
+====================================================== -->
+
+<section class="auth-screen" id="authScreen">
+    <div class="auth-card">
+        <div class="auth-brand">
+            <div class="brand-icon">A</div>
+            <span>AceArch</span>
+        </div>
+
+        <div class="auth-heading">
+            <p class="card-eyebrow" id="authEyebrow">WELCOME BACK</p>
+            <h1 id="authTitle">Sign in to AceArch</h1>
+            <p id="authDescription">Sign in to keep your AceArch workspace ready across your devices.</p>
+        </div>
+
+        <div class="auth-tabs" role="tablist" aria-label="Account options">
+            <button class="auth-tab active" id="loginTab" type="button">Log in</button>
+            <button class="auth-tab" id="registerTab" type="button">Create account</button>
+        </div>
+
+        <form class="auth-form" id="authForm">
+            <div class="auth-field">
+                <label for="authUsername">Username</label>
+                <input id="authUsername" type="text" autocomplete="username" placeholder="Enter your username" minlength="3" maxlength="30" required>
+            </div>
+
+            <div class="auth-field">
+                <label for="authPassword">Password</label>
+                <div class="password-field-wrap">
+                    <input id="authPassword" type="password" autocomplete="current-password" placeholder="Enter your password" minlength="6" required>
+                    <button
+                        class="password-toggle"
+                        id="authPasswordToggle"
+                        type="button"
+                        aria-label="Show password"
+                        aria-pressed="false"
+                    >
+                        <span aria-hidden="true">◉</span>
+                    </button>
+                </div>
+            </div>
+
+            <p class="auth-message" id="authMessage" role="alert" aria-live="polite"></p>
+
+            <button class="primary-button auth-submit" id="authSubmit" type="submit">Log in</button>
+        </form>
+
+        <p class="auth-note">
+            <span>Frontend prototype</span> — account data is currently stored locally on this device. Cloud sync and secure server authentication will be connected next.
+        </p>
+    </div>
+</section>
+
+<div class="app" id="acearchApp">
 
     <!-- =====================================================
          SIDEBAR
@@ -181,6 +242,11 @@
 
             <div class="topbar-actions">
 
+                <div class="account-chip" id="accountChip" title="Signed-in account">
+                    <span class="account-avatar" id="accountAvatar">A</span>
+                    <span class="account-username" id="accountUsername"></span>
+                </div>
+
                 <button
                     class="icon-button notification-trigger"
                     id="notificationButton"
@@ -194,6 +260,14 @@
                         id="notificationDot"
                     ></span>
 
+                </button>
+
+                <button
+                    class="secondary-button account-logout"
+                    id="logoutButton"
+                    type="button"
+                >
+                    Log out
                 </button>
 
             </div>
@@ -1136,159 +1210,98 @@
              ANALYTICS
         ================================================== -->
 
-        <section
-            class="page-section"
-            id="analyticsSection"
-        >
-
-            <div class="page-heading">
-
+        <section class="page-section analytics-page" id="analyticsSection">
+            <div class="page-heading analytics-heading">
                 <div>
-
-                    <p class="card-eyebrow">
-                        INSIGHTS
-                    </p>
-
-                    <h1>
-                        Analytics
-                    </h1>
-
-                    <p>
-                        Your productivity based on
-                        actual AceArch activity.
-                    </p>
-
+                    <p class="card-eyebrow">INSIGHTS</p>
+                    <h1>Analytics</h1>
+                    <p>See your recent study activity at a glance.</p>
                 </div>
-
+                <div class="analytics-heading-badge">
+                    <span class="analytics-live-dot"></span>
+                    Last 7 days
+                </div>
             </div>
 
-
-            <div class="analytics-grid">
-
-                <div class="card analytics-card">
-
-                    <span>
-                        Tasks
-                    </span>
-
-                    <strong id="analyticsTasks">
-                        0
-                    </strong>
-
-                    <small>
-                        completed
-                    </small>
-
-                </div>
-
-
-                <div class="card analytics-card">
-
-                    <span>
-                        Focus
-                    </span>
-
-                    <strong id="analyticsFocus">
-                        0m
-                    </strong>
-
-                    <small>
-                        total minutes
-                    </small>
-
-                </div>
-
-
-                <div class="card analytics-card">
-
-                    <span>
-                        Subjects
-                    </span>
-
-                    <strong id="analyticsSubjects">
-                        0
-                    </strong>
-
-                    <small>
-                        created
-                    </small>
-
-                </div>
-
-
-                <div class="card analytics-card">
-
-                    <span>
-                        Completion
-                    </span>
-
-                    <strong id="analyticsCompletion">
-                        0%
-                    </strong>
-
-                    <small>
-                        task completion
-                    </small>
-
-                </div>
-
-            </div>
-
-
-            <div class="analytics-overview">
-
-                <div class="card analytics-highlight">
-                    <div class="analytics-highlight-icon">↗</div>
-                    <div>
-                        <p class="card-eyebrow">TREND</p>
-                        <h2 id="analyticsInsight">Build your first streak</h2>
-                        <p id="analyticsInsightDetail">Complete tasks or focus for a few minutes to start seeing your productivity trend.</p>
+            <div class="analytics-dashboard-grid">
+                <div class="card analytics-stat-card">
+                    <div class="analytics-stat-icon">✓</div>
+                    <div class="analytics-stat-copy">
+                        <span>Tasks completed</span>
+                        <strong id="analyticsTasks">0</strong>
                     </div>
+                    <small>this week</small>
                 </div>
 
-                <div class="card analytics-mini-chart">
-                    <div class="card-header">
+                <div class="card analytics-stat-card">
+                    <div class="analytics-stat-icon">◷</div>
+                    <div class="analytics-stat-copy">
+                        <span>Focus time</span>
+                        <strong id="analyticsFocus">0m</strong>
+                    </div>
+                    <small>total</small>
+                </div>
+
+                <div class="card analytics-stat-card">
+                    <div class="analytics-stat-icon">◈</div>
+                    <div class="analytics-stat-copy">
+                        <span>Subjects</span>
+                        <strong id="analyticsSubjects">0</strong>
+                    </div>
+                    <small>created</small>
+                </div>
+
+                <div class="card analytics-stat-card">
+                    <div class="analytics-stat-icon">%</div>
+                    <div class="analytics-stat-copy">
+                        <span>Completion</span>
+                        <strong id="analyticsCompletion">0%</strong>
+                    </div>
+                    <small>task progress</small>
+                </div>
+            </div>
+
+            <div class="analytics-main-grid">
+                <div class="card analytics-chart-card">
+                    <div class="card-header analytics-chart-header">
                         <div>
-                            <p class="card-eyebrow">FOCUS</p>
-                            <h2>Focus this week</h2>
+                            <p class="card-eyebrow">ACTIVITY</p>
+                            <h2>Weekly activity</h2>
+                            <p class="analytics-chart-subtitle">Completed tasks and focused study time</p>
                         </div>
-                        <strong id="analyticsWeekFocus">0m</strong>
+                        <div class="analytics-legend" aria-label="Chart legend">
+                            <span><i class="analytics-legend-bar"></i>Tasks</span>
+                            <span><i class="analytics-legend-point"></i>Focus</span>
+                        </div>
                     </div>
-                    <div class="analytics-progress-track">
-                        <div class="analytics-progress-fill" id="analyticsFocusProgress"></div>
-                    </div>
-                    <small id="analyticsFocusProgressText">0 minutes logged in the last 7 days</small>
+                    <div class="analytics-chart" id="analyticsBars"></div>
                 </div>
 
-            </div>
-
-
-            <div class="card">
-
-                <div class="card-header">
-
-                    <div>
-
-                        <p class="card-eyebrow">
-                            ACTIVITY
-                        </p>
-
-                        <h2>
-                            Last 7 Days
-                        </h2>
-
+                <div class="analytics-side-stack">
+                    <div class="card analytics-highlight">
+                        <div class="analytics-highlight-icon">↗</div>
+                        <div>
+                            <p class="card-eyebrow">YOUR TREND</p>
+                            <h2 id="analyticsInsight">Build your first streak</h2>
+                            <p id="analyticsInsightDetail">Complete a task or focus for a few minutes to start seeing your productivity trend.</p>
+                        </div>
                     </div>
 
+                    <div class="card analytics-mini-chart">
+                        <div class="card-header">
+                            <div>
+                                <p class="card-eyebrow">FOCUS</p>
+                                <h2>This week</h2>
+                            </div>
+                            <strong id="analyticsWeekFocus">0m</strong>
+                        </div>
+                        <div class="analytics-progress-track">
+                            <div class="analytics-progress-fill" id="analyticsFocusProgress"></div>
+                        </div>
+                        <small id="analyticsFocusProgressText">0 minutes logged in the last 7 days</small>
+                    </div>
                 </div>
-
-
-                <div
-                    class="analytics-bars"
-                    id="analyticsBars"
-                ></div>
-
             </div>
-
         </section>
 
 
@@ -1313,9 +1326,7 @@
                         Settings
                     </h1>
 
-                    <p>
-                        Configure how AceArch works for you.
-                    </p>
+
 
                 </div>
 
@@ -1344,10 +1355,10 @@
 
                     <button
                         class="settings-tab"
-                        data-settings="about"
+                        data-settings="account"
                         type="button"
                     >
-                        About
+                        Account
                     </button>
 
                 </aside>
@@ -1355,83 +1366,58 @@
                     <!-- NOTIFICATIONS -->
 
                     <div
-                        class="settings-panel active"
+                        class="settings-panel active notification-settings-panel"
                         data-settings-panel="notifications"
                     >
 
-                        <h2>
-                            Notifications
-                        </h2>
-
-                        <p class="settings-description">
-                            Control AceArch reminders.
-                        </p>
-
-
-                        <label class="toggle-row">
-
+                        <div class="settings-panel-heading">
                             <div>
-
-                                <strong>
-                                    Task reminders
-                                </strong>
-
-                                <small>
-                                    Notify you when tasks are created.
-                                </small>
-
+                                <p class="card-eyebrow">REMINDERS</p>
+                                <h2>Notifications</h2>
                             </div>
+                            <div class="notification-settings-icon" aria-hidden="true">⏰</div>
+                        </div>
 
-                            <input
-                                type="checkbox"
-                                id="taskNotifications"
-                            >
-
+                        <label class="toggle-row notification-master-row">
+                            <div><strong>Deadline &amp; schedule reminders</strong></div>
+                            <input type="checkbox" id="deadlineNotifications">
                         </label>
 
+                        <div class="notification-rule-card">
+                            <div class="notification-settings-grid">
+                                <div class="form-group">
+                                    <label for="deadlineReminderDays">Remind me From</label>
+                                    <div class="number-stepper">
+                                        <input id="deadlineReminderDays" type="number" min="1" value="3" inputmode="numeric">
+                                        <div class="number-stepper-buttons">
+                                            <button type="button" class="stepper-button" data-stepper-target="deadlineReminderDays" data-stepper-direction="up" aria-label="Increase reminder days">⌃</button>
+                                            <button type="button" class="stepper-button" data-stepper-target="deadlineReminderDays" data-stepper-direction="down" aria-label="Decrease reminder days">⌄</button>
+                                        </div>
+                                    </div>
+                                </div>
 
-                        <label class="toggle-row">
-
-                            <div>
-
-                                <strong>
-                                    Deadline reminders
-                                </strong>
-
-                                <small>
-                                    Show upcoming deadline notifications.
-                                </small>
-
+                                <div class="form-group">
+                                    <label for="deadlineReminderTime">At</label>
+                                    <input id="deadlineReminderTime" type="time" value="18:00">
+                                </div>
                             </div>
 
-                            <input
-                                type="checkbox"
-                                id="deadlineNotifications"
-                            >
+                            <label class="toggle-row notification-daily-row">
+                                <div><strong>Remind me Every</strong></div>
+                                <input type="checkbox" id="dailyDeadlineReminders">
+                            </label>
 
-                        </label>
-
-
-                        <label class="toggle-row">
-
-                            <div>
-
-                                <strong>
-                                    Study reminders
-                                </strong>
-
-                                <small>
-                                    Notify you when a focus session finishes.
-                                </small>
-
+                            <div class="form-group daily-reminder-days-field" id="dailyReminderDaysField">
+                                <label for="dailyDeadlineReminderDays">Days</label>
+                                <div class="number-stepper">
+                                    <input id="dailyDeadlineReminderDays" type="number" min="1" value="3" inputmode="numeric">
+                                    <div class="number-stepper-buttons">
+                                        <button type="button" class="stepper-button" data-stepper-target="dailyDeadlineReminderDays" data-stepper-direction="up" aria-label="Increase daily reminder days">⌃</button>
+                                        <button type="button" class="stepper-button" data-stepper-target="dailyDeadlineReminderDays" data-stepper-direction="down" aria-label="Decrease daily reminder days">⌄</button>
+                                    </div>
+                                </div>
                             </div>
-
-                            <input
-                                type="checkbox"
-                                id="studyNotifications"
-                            >
-
-                        </label>
+                        </div>
 
                     </div>
 
@@ -1446,10 +1432,6 @@
                         <h2>
                             Customize AceArch
                         </h2>
-
-                        <p class="settings-description">
-                            Make AceArch look and feel like yours.
-                        </p>
 
 
                         <div class="customize-group">
@@ -1631,37 +1613,38 @@
 
                     </div>
 
-                    <!-- ABOUT -->
+                    <!-- ACCOUNT -->
 
                     <div
                         class="settings-panel"
-                        data-settings-panel="about"
+                        data-settings-panel="account"
                     >
 
                         <h2>
-                            About AceArch
+                            Account
                         </h2>
 
-                        <p class="settings-description">
-                            A personal student productivity
-                            workspace built from scratch.
-                        </p>
+                        <div class="account-settings-card">
+                            <div class="account-settings-identity">
+                                <span class="account-settings-avatar" id="settingsAccountAvatar">A</span>
+                                <div>
+                                    <strong id="settingsAccountUsername">Account</strong>
+                                </div>
+                            </div>
+                        </div>
 
+                        <div class="account-action-card">
+                            <div>
+                                <h3>Delete My Data</h3>
+                            </div>
+                            <button class="danger-button" id="deleteMyData" type="button">Delete My Data</button>
+                        </div>
 
-                        <div class="about-box">
-
-                            <strong>
-                                AceArch
-                            </strong>
-
-                            <span>
-                                Personal Student Planner
-                            </span>
-
-                            <small>
-                                Frontend foundation
-                            </small>
-
+                        <div class="account-action-card account-danger-card">
+                            <div>
+                                <h3>Delete My Account</h3>
+                            </div>
+                            <button class="danger-button" id="deleteMyAccount" type="button">Delete My Account</button>
                         </div>
 
                     </div>
@@ -1771,10 +1754,6 @@
                         type="date"
                         required
                     >
-
-                    <small class="field-hint">
-                        Deadline cannot be before today.
-                    </small>
 
                 </div>
 
@@ -1907,10 +1886,6 @@
                     required
                 >
 
-                <small class="field-hint">
-                    Calendar items cannot be added before today.
-                </small>
-
             </div>
 
 
@@ -2001,124 +1976,30 @@
 
         <form id="subjectForm">
 
-            <input
-                id="subjectId"
-                type="hidden"
-            >
-
-
-            <div class="form-row">
-
-                <div class="form-group">
-
-                    <label for="subjectName">
-                        Subject name
-                    </label>
-
-                    <input
-                        id="subjectName"
-                        type="text"
-                        required
-                        autocomplete="off"
-                    >
-
+            <input id="subjectId" type="hidden">
+            <div class="subject-form-grid">
+                <div class="form-group subject-name-group">
+                    <label for="subjectName">Subject name</label>
+                    <input id="subjectName" type="text" required maxlength="80" autocomplete="off" placeholder="e.g. Mathematics">
                 </div>
 
-
-                <div class="form-group">
-
-                    <label for="subjectColor">
-                        Color
-                    </label>
-
-                    <input
-                        id="subjectColor"
-                        type="color"
-                        value="#7c5cff"
-                    >
-
-                </div>
-
-            </div>
-
-
-            <div class="subject-editor-section">
-
-                <div class="section-title-row">
-
-                    <div>
-
-                        <h3>
-                            Schedule / Planner
-                        </h3>
-
-                        <p>
-                            Add classes, study sessions,
-                            lectures or recurring plans.
-                        </p>
-
+                <div class="form-group subject-color-group">
+                    <label for="subjectColor">Subject color</label>
+                    <div class="subject-color-control">
+                        <input id="subjectColor" type="color" value="#7c5cff" aria-label="Choose subject color">
+                        <div class="subject-color-value" id="subjectColorValue">#7C5CFF</div>
                     </div>
-
-                    <button
-                        class="secondary-button"
-                        id="addScheduleRow"
-                        type="button"
-                    >
-                        + Add Schedule
-                    </button>
-
                 </div>
-
-
-                <div
-                    id="subjectScheduleRows"
-                    class="schedule-editor"
-                ></div>
-
             </div>
 
-
-            <div class="subject-editor-section">
-
-                <div class="section-title-row">
-
-                    <div>
-
-                        <h3>
-                            PDF Notes
-                        </h3>
-
-                        <p>
-                            Attach PDF notes to this subject.
-                        </p>
-
-                    </div>
-
-                    <label
-                        class="secondary-button file-button"
-                    >
-
-                        + Add PDF
-
-                        <input
-                            id="subjectPdfInput"
-                            type="file"
-                            accept="application/pdf,.pdf"
-                            hidden
-                            multiple
-                        >
-
-                    </label>
-
+            <div class="subject-live-preview" id="subjectLivePreview">
+                <div class="subject-preview-swatch" id="subjectPreviewSwatch"></div>
+                <div>
+                    <span class="subject-preview-label">Live preview</span>
+                    <strong id="subjectPreviewName">Your subject</strong>
                 </div>
-
-
-                <div
-                    id="subjectPdfList"
-                    class="pdf-list"
-                ></div>
-
             </div>
+
 
 
             <div class="modal-actions">

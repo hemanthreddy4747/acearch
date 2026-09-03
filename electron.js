@@ -1,18 +1,23 @@
 const { app, BrowserWindow } = require("electron");
-const { spawn } = require("child_process");
+const path = require("path");
 
-let serverProcess;
+let serverStarted = false;
 
 function startServer() {
-    serverProcess = spawn(
-        "node",
-        ["server/server.js"],
-        {
-            cwd: __dirname,
-            shell: true,
-            stdio: "inherit"
-        }
+    if (serverStarted) return;
+
+    serverStarted = true;
+
+    // Tell the database where the packaged app should store
+    // the user's AceArch data.
+    process.env.ACEARCH_DATA_DIR = path.join(
+        app.getPath("userData"),
+        "data"
     );
+
+    // Start the existing Express server directly.
+    // server.js already calls app.listen(3000).
+    require(path.join(__dirname, "server", "server.js"));
 }
 
 function createWindow() {
@@ -20,7 +25,8 @@ function createWindow() {
         width: 1400,
         height: 900,
         minWidth: 1000,
-        minHeight: 700
+        minHeight: 700,
+        icon: path.join(__dirname, "public", "assets", "acearch-icon.ico")
     });
 
     win.loadURL("http://localhost:3000");
@@ -35,10 +41,6 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-    if (serverProcess) {
-        serverProcess.kill();
-    }
-
     if (process.platform !== "darwin") {
         app.quit();
     }
