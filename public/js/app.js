@@ -1,18 +1,25 @@
-/* =========================================================
-   ACEARCH
-   Complete Application JavaScript
-   Version 2
-========================================================= */
-
 
 /* =========================================================
    ACCOUNT / LOGIN
 ========================================================= */
 
 const AUTH_KEYS = {
-    token: "acearch_auth_token",
-    user: "acearch_auth_user"
+    token: "acearch_showcase_auth_token",
+    user: "acearch_showcase_auth_user"
 };
+
+/*
+ * GITHUB SHOWCASE MODE
+ * --------------------
+ * This build intentionally does NOT require the Node/Express API.
+ * Accounts and AceArch data are stored only in this browser using
+ * localStorage, while PDFs continue using the existing IndexedDB system.
+ *
+ * The desktop/Electron build is unchanged and can continue using
+ * the real Express + SQLite authentication/data system.
+ */
+const SHOWCASE_MODE = true;
+const SHOWCASE_ACCOUNTS_KEY = "acearch_showcase_accounts_v1";
 
 let authMode = "login";
 let authInitializationPromise = Promise.resolve();
@@ -43,6 +50,43 @@ function setAuthData(token, user) {
 function clearAuthData() {
     localStorage.removeItem(AUTH_KEYS.token);
     localStorage.removeItem(AUTH_KEYS.user);
+}
+
+function loadShowcaseAccounts() {
+    try {
+        const raw = localStorage.getItem(SHOWCASE_ACCOUNTS_KEY);
+        const accounts = raw ? JSON.parse(raw) : [];
+        return Array.isArray(accounts) ? accounts : [];
+    } catch (error) {
+        console.warn("Could not load showcase accounts:", error);
+        return [];
+    }
+}
+
+function saveShowcaseAccounts(accounts) {
+    localStorage.setItem(SHOWCASE_ACCOUNTS_KEY, JSON.stringify(accounts));
+}
+
+async function hashShowcasePassword(password) {
+    if (window.crypto?.subtle) {
+        const bytes = new TextEncoder().encode(password);
+        const digest = await crypto.subtle.digest("SHA-256", bytes);
+        return Array.from(new Uint8Array(digest))
+            .map(byte => byte.toString(16).padStart(2, "0"))
+            .join("");
+    }
+
+    // Fallback for unusual browser environments without Web Crypto.
+    let hash = 2166136261;
+    for (let i = 0; i < password.length; i += 1) {
+        hash ^= password.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return `fallback-${(hash >>> 0).toString(16)}`;
+}
+
+function createShowcaseToken(userId) {
+    return `showcase-${userId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function setAuthMessage(message, type = "error") {
@@ -86,7 +130,9 @@ function updateAuthMode() {
 
     if (eyebrow) eyebrow.textContent = isRegister ? "GET STARTED" : "WELCOME BACK";
     if (title) title.textContent = isRegister ? "Create your AceArch account" : "Sign in to AceArch";
-    if (description) description.textContent = isRegister ? "Create your AceArch account to use your personal workspace." : "Sign in to open your AceArch workspace.";
+    if (description) description.textContent = isRegister
+        ? "Create your AceArch account to use your personal workspace."
+        : "Sign in to open your AceArch workspace.";
     if (submit) submit.textContent = isRegister ? "Create account" : "Log in";
 
     setAuthMessage("");
@@ -196,21 +242,45 @@ async function handleAuthSubmit(event) {
     if (submitButton) submitButton.disabled = true;
 
     try {
-        const endpoint = authMode === "register" ? "/api/auth/register" : "/api/auth/login";
-        const response = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password })
-        });
-        const result = await response.json().catch(() => ({}));
+        const accounts = loadShowcaseAccounts();
+        const normalizedUsername = username.toLowerCase();
+        const passwordHash = await hashShowcasePassword(password);
 
-        if (!response.ok) {
-            setAuthMessage(result.error || "Authentication failed.");
-            return;
+        if (authMode === "register") {
+            if (accounts.some(account => account.username.toLowerCase() === normalizedUsername)) {
+                setAuthMessage("That username is already registered in this browser.");
+                return;
+            }
+
+            const user = {
+                id: `user_${createId()}`,
+                username,
+                createdAt: new Date().toISOString()
+            };
+
+            accounts.push({
+                ...user,
+                passwordHash
+            });
+            saveShowcaseAccounts(accounts);
+            setAuthData(createShowcaseToken(user.id), user);
+        } else {
+            const account = accounts.find(item => item.username.toLowerCase() === normalizedUsername);
+
+            if (!account || account.passwordHash !== passwordHash) {
+                setAuthMessage("Incorrect username or password.");
+                return;
+            }
+
+            const user = {
+                id: account.id,
+                username: account.username,
+                createdAt: account.createdAt
+            };
+            setAuthData(createShowcaseToken(user.id), user);
         }
 
         resetUserDataInMemory();
-        setAuthData(result.token, result.user);
         document.getElementById("authForm")?.reset();
         showAppForSession();
 
@@ -221,8 +291,8 @@ async function handleAuthSubmit(event) {
         navigate("dashboard");
 
     } catch (error) {
-        console.error("Authentication request failed:", error);
-        setAuthMessage("Could not connect to the AceArch server.");
+        console.error("Showcase authentication failed:", error);
+        setAuthMessage("Could not create or open the local AceArch account.");
     } finally {
         if (submitButton) submitButton.disabled = false;
     }
@@ -230,45 +300,24 @@ async function handleAuthSubmit(event) {
 
 async function verifyExistingSession() {
     const token = getAuthToken();
+    const user = getAuthUser();
 
-    if (!token) {
+    if (!token || !user?.id) {
         showLoginScreen();
         return;
     }
 
-    try {
-        const response = await fetch("/api/auth/me", {
-            method: "GET",
-            cache: "no-store",
-            headers: { Authorization: `Bearer ${token}` }
-        });
+    if (!SHOWCASE_MODE) return;
 
-        if (!response.ok) {
-            clearAuthData();
-            showLoginScreen();
-            return;
-        }
-
-        const result = await response.json();
-        if (!result.authenticated || !result.user) {
-            clearAuthData();
-            showLoginScreen();
-            return;
-        }
-
-        setAuthData(token, result.user);
-        showAppForSession();
-        await startAuthenticatedDatabaseLoad();
-
-    } catch (error) {
-        console.error("Session verification failed:", error);
-        if (getAuthUser()) {
-            showAppForSession();
-            await loadUserLocalBackup(getAuthUser().id);
-        } else {
-            showLoginScreen();
-        }
+    const accountExists = loadShowcaseAccounts().some(account => account.id === user.id);
+    if (!accountExists) {
+        clearAuthData();
+        showLoginScreen();
+        return;
     }
+
+    showAppForSession();
+    await startAuthenticatedDatabaseLoad();
 }
 
 function initializeFrontendAuth() {
@@ -371,15 +420,13 @@ let settings = { ...defaultSettings };
 
 
 /* =========================================================
-   SQLITE DATABASE SYNC
+   BROWSER STORAGE / SHOWCASE DATA
 ========================================================= */
 
 /*
- * localStorage remains as a browser-side backup, but SQLite is
- * now the primary persistent store for AceArch app data.
- *
- * Calendar and focus data are also stored in SQLite. PDFs remain
- * in the existing IndexedDB system because they are binary files.
+ * In the GitHub showcase build, this replaces the server/SQLite
+ * persistence layer with browser-local persistence. Each account gets
+ * its own namespaced data, so switching accounts does not mix data.
  */
 
 let databaseReady = false;
@@ -446,132 +493,42 @@ function clearUserLocalBackup(userId) {
 }
 
 function saveData() {
-    const token = getAuthToken();
     const userId = getAuthUser()?.id;
-
-    if (!token || !userId) {
-        return;
-    }
+    if (!userId) return;
 
     saveLocalBackup();
-
-    if (!databaseReady || databaseUserId !== userId) {
-        return;
-    }
-
-    const payload = getDatabasePayload();
-    const generation = dataSessionGeneration;
-
-    databaseSaveQueue = databaseSaveQueue
-        .then(async () => {
-            // Never let a queued save from an old account/state run under a new account.
-            if (generation !== dataSessionGeneration || getAuthToken() !== token || getAuthUser()?.id !== userId) {
-                return;
-            }
-
-            const response = await fetch("/api/data", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (response.status === 401) {
-                clearAuthData();
-                showLoginScreen();
-                throw new Error("Authentication expired.");
-            }
-
-            if (!response.ok) {
-                throw new Error(`Database save failed: ${response.status}`);
-            }
-        })
-        .catch(error => {
-            console.error("SQLite save failed:", error);
-            if (getAuthUser()?.id === userId) {
-                showToast("Could not save to the database. Your local backup is still available.", "error");
-            }
-        });
+    databaseReady = true;
+    databaseUserId = userId;
 }
 
 async function loadDatabaseData() {
-    const token = getAuthToken();
     const userId = getAuthUser()?.id;
 
-    if (!token || !userId) {
+    if (!userId) {
         resetUserDataInMemory();
         return;
     }
 
-    try {
-        const response = await fetch("/api/data", {
-            cache: "no-store",
-            headers: { Authorization: `Bearer ${token}` }
-        });
+    loadUserLocalBackup(userId);
+    databaseReady = true;
+    databaseUserId = userId;
 
-        if (response.status === 401) {
-            clearAuthData();
-            showLoginScreen();
-            throw new Error("AUTHENTICATION_REQUIRED");
-        }
-
-        if (!response.ok) {
-            throw new Error(`Database load failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Only accept data if the same account is still active.
-        if (getAuthToken() !== token || getAuthUser()?.id !== userId) {
-            return;
-        }
-
-        tasks = Array.isArray(data.tasks) ? data.tasks : [];
-        subjects = Array.isArray(data.subjects) ? data.subjects : [];
-        notifications = Array.isArray(data.notifications) ? data.notifications : [];
-        calendarItems = Array.isArray(data.calendarItems) ? data.calendarItems : [];
-        focusSessions = Array.isArray(data.focusSessions) ? data.focusSessions : [];
-        settings = { ...defaultSettings, ...(data.settings || {}) };
-
-        databaseReady = true;
-        databaseUserId = userId;
-        saveLocalBackup();
-
-        applyCustomization();
-        renderAll();
-        renderFocusPage();
-        showAppForSession();
-
-    } catch (error) {
-        if (error.message === "AUTHENTICATION_REQUIRED") {
-            return;
-        }
-
-        console.error("SQLite load failed:", error);
-        databaseReady = false;
-        databaseUserId = userId;
-        loadUserLocalBackup(userId);
-        applyCustomization();
-        renderAll();
-        renderFocusPage();
-        showToast("Database unavailable. AceArch is using this account's local backup data.", "error");
-    }
+    applyCustomization();
+    renderAll();
+    renderFocusPage();
+    showAppForSession();
 }
 
 let databaseLoadPromise = Promise.resolve();
 
 async function startAuthenticatedDatabaseLoad() {
-    const token = getAuthToken();
     const userId = getAuthUser()?.id;
 
-    if (!token || !userId) {
+    if (!userId) {
         databaseLoadPromise = Promise.resolve();
         return;
     }
 
-    // Invalidate any previous account's state before loading the new account.
     databaseReady = false;
     databaseUserId = null;
     databaseLoadPromise = loadDatabaseData();
@@ -5727,9 +5684,8 @@ document
 ========================================================= */
 
 async function deleteCurrentUserData() {
-    const token = getAuthToken();
     const user = getAuthUser();
-    if (!token || !user?.id) {
+    if (!user?.id) {
         showLoginScreen();
         return;
     }
@@ -5745,21 +5701,6 @@ async function deleteCurrentUserData() {
     databaseSaveQueue = Promise.resolve();
 
     try {
-        const response = await fetch("/api/account/data", {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${token}` }
-        });
-
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            if (response.status === 401) {
-                clearAuthData();
-                showLoginScreen();
-                return;
-            }
-            throw new Error(result.error || "Could not delete your data.");
-        }
-
         await deletePdfsForSubjects(subjectIds);
         tasks = [];
         subjects = [];
@@ -5776,7 +5717,7 @@ async function deleteCurrentUserData() {
         renderFocusPage();
         navigate("dashboard");
         showAppForSession();
-        showToast(result.message || "Your AceArch data was deleted. Your account is still active.", "success");
+        showToast("Your AceArch data was deleted. Your account is still active.", "success");
 
     } catch (error) {
         console.error("Delete My Data failed:", error);
@@ -5785,9 +5726,8 @@ async function deleteCurrentUserData() {
 }
 
 async function deleteCurrentUserAccount() {
-    const token = getAuthToken();
     const user = getAuthUser();
-    if (!token || !user?.id) {
+    if (!user?.id) {
         showLoginScreen();
         return;
     }
@@ -5803,29 +5743,18 @@ async function deleteCurrentUserAccount() {
     databaseSaveQueue = Promise.resolve();
 
     try {
-        const response = await fetch("/api/account", {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${token}` }
-        });
-
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            if (response.status === 401) {
-                clearAuthData();
-                showLoginScreen();
-                return;
-            }
-            throw new Error(result.error || "Could not delete your account.");
-        }
-
         await deletePdfsForSubjects(subjectIds);
         clearUserLocalBackup(user.id);
+
+        const accounts = loadShowcaseAccounts().filter(account => account.id !== user.id);
+        saveShowcaseAccounts(accounts);
+
         clearAuthData();
         resetUserDataInMemory();
         showLoginScreen();
         authMode = "login";
         updateAuthMode();
-        showToast(result.message || "Your account was deleted.", "success");
+        showToast("Your account was deleted.", "success");
 
     } catch (error) {
         console.error("Delete My Account failed:", error);
@@ -5842,11 +5771,11 @@ document.querySelector("#deleteMyAccount")?.addEventListener("click", deleteCurr
 
 document.querySelector("#clearLocalData")?.addEventListener("click", async () => {
     const userId = getAuthUser()?.id;
-    const confirmed = await confirmAction("This will clear this account's local browser backup. Your SQLite data will remain intact. Continue?");
+    const confirmed = await confirmAction("This will clear all AceArch data stored for this account in this browser. Continue?");
     if (!confirmed) return;
 
     if (userId) clearUserLocalBackup(userId);
-    showToast("Local backup cleared.", "success");
+    showToast("This account's browser data was cleared.", "success");
 });
 
 /* =========================================================
